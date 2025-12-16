@@ -33,6 +33,16 @@ export async function GET(req: Request) {
 // POST - Generate a new template using the Planner agent
 export async function POST(req: Request) {
   try {
+    // Check env vars first
+    if (!process.env.OPENROUTER_API_KEY) {
+      console.error("Missing OPENROUTER_API_KEY");
+      return NextResponse.json({ error: "Missing OPENROUTER_API_KEY env var" }, { status: 500 });
+    }
+    if (!process.env.DATABASE_URL) {
+      console.error("Missing DATABASE_URL");
+      return NextResponse.json({ error: "Missing DATABASE_URL env var" }, { status: 500 });
+    }
+
     const { projectId } = await req.json();
 
     if (!projectId) {
@@ -48,6 +58,7 @@ export async function POST(req: Request) {
       .single();
 
     if (projectError || !project) {
+      console.error("Project fetch error:", projectError);
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
@@ -60,6 +71,7 @@ export async function POST(req: Request) {
     const version = (count || 0) + 1;
 
     // Use the planner agent to generate the rubric
+    console.log("Getting planner agent...");
     const planner = mastra.getAgent("plannerAgent");
 
     const prompt = `Generate an interview rubric for the following research project:
