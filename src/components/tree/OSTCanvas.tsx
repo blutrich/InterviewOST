@@ -25,7 +25,7 @@ interface Opportunity {
   id: string;
   title: string;
   description?: string;
-  type: "outcome" | "opportunity" | "solution";
+  type: "outcome" | "opportunity" | "solution" | "unmet_need" | "workaround";
   status: "suggested" | "approved" | "rejected" | "merged";
   parent_id: string | null;
   evidence_count: number;
