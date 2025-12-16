@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Button } from "@/components/ui/button";
 import TemplatesClient from "./TemplatesClient";
 
 interface Props {
@@ -33,29 +32,36 @@ export default async function TemplatesPage({ params }: Props) {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-            <Link href="/dashboard" className="hover:text-gray-900">
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.15em] text-landing-stone mb-4">
+            <Link href="/dashboard" className="hover:text-landing-charcoal transition-colors">
               Projects
             </Link>
-            <span>/</span>
-            <Link href={`/dashboard/projects/${id}`} className="hover:text-gray-900">
+            <span className="text-landing-stone/40">/</span>
+            <Link href={`/dashboard/projects/${id}`} className="hover:text-landing-charcoal transition-colors">
               {project.name}
             </Link>
-            <span>/</span>
-            <span className="text-gray-900">Templates</span>
+            <span className="text-landing-stone/40">/</span>
+            <span className="text-landing-charcoal">Templates</span>
           </div>
-          <h1 className="text-3xl font-bold">Interview Templates</h1>
-          <p className="text-gray-500 mt-1">
+
+          <h1 className="text-4xl font-light text-landing-charcoal tracking-tight">
+            Interview Templates
+          </h1>
+          <p className="text-landing-stone mt-2">
             Story-based interview rubrics for conducting discovery interviews
           </p>
         </div>
-        <Button variant="outline" asChild>
-          <Link href={`/dashboard/projects/${id}`}>Back to Project</Link>
-        </Button>
+        <Link
+          href={`/dashboard/projects/${id}`}
+          className="h-10 px-5 border border-landing-charcoal/10 text-landing-charcoal text-[12px] uppercase tracking-wider font-medium rounded-full hover:border-landing-charcoal/30 hover:bg-white transition-all duration-300 flex items-center"
+        >
+          Back to Project
+        </Link>
       </div>
 
       {/* Client component handles the interactive parts */}

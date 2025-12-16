@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 interface GenerateSnapshotButtonProps {
@@ -42,11 +41,15 @@ export function GenerateSnapshotButton({
   };
 
   return (
-    <Button onClick={handleGenerate} disabled={isGenerating} size="lg">
+    <button
+      onClick={handleGenerate}
+      disabled={isGenerating}
+      className="h-12 px-8 bg-landing-forest text-white text-[12px] uppercase tracking-wider font-medium rounded-full hover:bg-landing-forest-light transition-all duration-300 disabled:opacity-50 flex items-center gap-2 mx-auto"
+    >
       {isGenerating ? (
         <>
           <svg
-            className="animate-spin -ml-1 mr-2 h-4 w-4"
+            className="animate-spin w-4 h-4"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -75,7 +78,7 @@ export function GenerateSnapshotButton({
             viewBox="0 0 24 24"
             strokeWidth={1.5}
             stroke="currentColor"
-            className="w-4 h-4 mr-2"
+            className="w-4 h-4"
           >
             <path
               strokeLinecap="round"
@@ -86,6 +89,6 @@ export function GenerateSnapshotButton({
           Generate Interview Snapshot
         </>
       )}
-    </Button>
+    </button>
   );
 }

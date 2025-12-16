@@ -3,16 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Message {
   id: string;
@@ -249,10 +239,10 @@ export default function PublicInterviewPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-landing-ivory grain">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white mx-auto"></div>
-          <p className="mt-4 text-gray-500">Loading interview...</p>
+          <div className="w-8 h-8 border-2 border-landing-forest border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-landing-stone">Loading interview...</p>
         </div>
       </div>
     );
@@ -260,128 +250,125 @@ export default function PublicInterviewPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
-        <Card className="w-full max-w-md text-center">
-          <CardContent className="pt-6">
-            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/20 flex items-center justify-center mx-auto mb-4">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-                className="w-6 h-6 text-red-600"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-                />
-              </svg>
-            </div>
-            <h2 className="text-xl font-semibold mb-2">Interview Unavailable</h2>
-            <p className="text-gray-500">{error}</p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center bg-landing-ivory grain p-8">
+        <div className="w-full max-w-md text-center">
+          <div className="w-20 h-20 rounded-full bg-landing-terracotta/10 mx-auto mb-8 flex items-center justify-center">
+            <svg className="w-10 h-10 text-landing-terracotta" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-light text-landing-charcoal mb-4">
+            Interview Unavailable
+          </h1>
+          <p className="text-landing-stone">{error}</p>
+        </div>
       </div>
     );
   }
 
   if (isCompleted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
-        <Card className="w-full max-w-md text-center">
-          <CardContent className="pt-8 pb-8">
-            <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/20 flex items-center justify-center mx-auto mb-4">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                stroke="currentColor"
-                className="w-8 h-8 text-green-600"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-semibold mb-2">Interview Complete</h2>
-            <p className="text-gray-500 mb-4">
-              Thank you for taking the time to share your experiences, {participantName || "participant"}!
-              Your insights are incredibly valuable and will help us improve.
-            </p>
-            <p className="text-sm text-gray-400">
-              You can safely close this page now.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center bg-landing-ivory grain p-8">
+        <div className="w-full max-w-md text-center">
+          <div className="w-20 h-20 rounded-full bg-landing-forest/10 mx-auto mb-8 flex items-center justify-center">
+            <svg className="w-10 h-10 text-landing-forest" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-light text-landing-charcoal mb-4">
+            Interview Complete
+          </h1>
+          <p className="text-landing-stone mb-8">
+            Thank you for taking the time to share your experiences, {participantName || "participant"}!
+            Your insights are incredibly valuable and will help us improve.
+          </p>
+          <p className="text-sm text-landing-stone/60">
+            You can safely close this page now.
+          </p>
+        </div>
       </div>
     );
   }
 
   if (!nameSubmitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle>Welcome to the Interview</CardTitle>
-            <CardDescription>
-              Thank you for participating in our research. Your insights will
-              help us improve our product.
-            </CardDescription>
-          </CardHeader>
-          <form onSubmit={handleNameSubmit}>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label
-                  htmlFor="name"
-                  className="text-sm font-medium text-gray-700 dark:text-gray-300"
-                >
-                  Your Name (optional)
-                </label>
-                <Input
-                  id="name"
-                  placeholder="Enter your name"
-                  value={participantName}
-                  onChange={(e) => setParticipantName(e.target.value)}
-                />
-                <p className="text-xs text-gray-500">
-                  You can use a nickname or pseudonym if you prefer.
-                </p>
-              </div>
-              <Button type="submit" className="w-full">
-                Start Interview
-              </Button>
-            </CardContent>
+      <div className="min-h-screen flex items-center justify-center bg-landing-ivory grain p-8">
+        <div className="w-full max-w-md">
+          {/* Logo */}
+          <div className="flex items-center gap-3 mb-12">
+            <div className="w-10 h-10 rounded-lg bg-landing-forest flex items-center justify-center">
+              <span className="text-white font-serif text-xl font-medium">D</span>
+            </div>
+            <span className="text-landing-charcoal font-medium tracking-tight">Discovery Co-Pilot</span>
+          </div>
+
+          <div className="space-y-2 mb-10">
+            <h1 className="text-3xl font-light text-landing-charcoal">
+              Welcome to the interview
+            </h1>
+            <p className="text-landing-stone">
+              Thank you for participating in our research. Your insights will help us improve our product.
+            </p>
+          </div>
+
+          <form onSubmit={handleNameSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <label
+                htmlFor="name"
+                className="block text-[11px] uppercase tracking-[0.15em] text-landing-charcoal font-medium"
+              >
+                Your Name (Optional)
+              </label>
+              <input
+                id="name"
+                type="text"
+                placeholder="Enter your name"
+                value={participantName}
+                onChange={(e) => setParticipantName(e.target.value)}
+                className="w-full h-12 px-4 bg-white border border-landing-charcoal/10 rounded-xl text-landing-charcoal placeholder:text-landing-stone/50 focus:outline-none focus:border-landing-forest focus:ring-2 focus:ring-landing-forest/10 transition-all duration-300"
+              />
+              <p className="text-xs text-landing-stone">
+                You can use a nickname or pseudonym if you prefer.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full h-12 bg-landing-forest text-white text-[12px] uppercase tracking-wider font-medium rounded-full hover:bg-landing-forest-light transition-all duration-300"
+            >
+              Start Interview
+            </button>
           </form>
-        </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen flex flex-col bg-landing-ivory grain">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-white dark:bg-gray-950 border-b px-4 py-3">
+      <header className="sticky top-0 z-10 bg-landing-ivory/80 backdrop-blur-xl border-b border-landing-charcoal/5 px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="font-semibold">Research Interview</h1>
-            <p className="text-sm text-gray-500">
-              {participantName || "Anonymous"}
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-landing-forest flex items-center justify-center">
+              <span className="text-white font-serif text-sm font-medium">D</span>
+            </div>
+            <div>
+              <p className="font-medium text-landing-charcoal text-sm">Research Interview</p>
+              <p className="text-xs text-landing-stone">
+                {participantName || "Anonymous"}
+              </p>
+            </div>
           </div>
-          <div className="text-sm text-gray-500">
+          <span className="text-[11px] uppercase tracking-wider text-landing-stone">
             {messages.length} messages
-          </div>
+          </span>
         </div>
       </header>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 px-4" ref={scrollRef}>
-        <div className="max-w-2xl mx-auto py-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4" ref={scrollRef}>
+        <div className="max-w-2xl mx-auto py-6 space-y-4">
           {messages.map((message) => (
             <div
               key={message.id}
@@ -390,47 +377,55 @@ export default function PublicInterviewPage() {
               }`}
             >
               <div
-                className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+                className={`max-w-[80%] rounded-2xl px-5 py-3 ${
                   message.role === "user"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-gray-200 dark:bg-gray-800"
+                    ? "bg-landing-forest text-white"
+                    : "bg-white border border-landing-charcoal/5 text-landing-charcoal"
                 }`}
               >
-                <p className="whitespace-pre-wrap">{message.content}</p>
+                <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
               </div>
             </div>
           ))}
           {sending && (
             <div className="flex justify-start">
-              <div className="bg-gray-200 dark:bg-gray-800 rounded-2xl px-4 py-2">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.1s]"></div>
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+              <div className="bg-white border border-landing-charcoal/5 rounded-2xl px-5 py-3">
+                <div className="flex space-x-1.5">
+                  <div className="w-2 h-2 bg-landing-stone/40 rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-landing-stone/40 rounded-full animate-bounce [animation-delay:0.1s]" />
+                  <div className="w-2 h-2 bg-landing-stone/40 rounded-full animate-bounce [animation-delay:0.2s]" />
                 </div>
               </div>
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Input */}
-      <div className="sticky bottom-0 bg-white dark:bg-gray-950 border-t px-4 py-3">
+      <div className="sticky bottom-0 bg-landing-ivory/80 backdrop-blur-xl border-t border-landing-charcoal/5 px-4 py-4">
         <form
           onSubmit={handleSend}
-          className="max-w-2xl mx-auto flex items-center gap-2"
+          className="max-w-2xl mx-auto flex items-center gap-3"
         >
-          <Input
+          <input
             ref={inputRef}
+            type="text"
             placeholder="Type your response..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             disabled={sending}
-            className="flex-1"
+            className="flex-1 h-12 px-5 bg-white border border-landing-charcoal/10 rounded-full text-landing-charcoal placeholder:text-landing-stone/50 focus:outline-none focus:border-landing-forest focus:ring-2 focus:ring-landing-forest/10 transition-all duration-300 disabled:opacity-50"
           />
-          <Button type="submit" disabled={sending || !input.trim()}>
+          <button
+            type="submit"
+            disabled={sending || !input.trim()}
+            className="h-12 px-6 bg-landing-forest text-white text-[12px] uppercase tracking-wider font-medium rounded-full hover:bg-landing-forest-light transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
             Send
-          </Button>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+            </svg>
+          </button>
         </form>
       </div>
     </div>

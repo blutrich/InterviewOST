@@ -1,8 +1,5 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-
 interface Quote {
   quote: string;
   context: string;
@@ -16,167 +13,89 @@ interface QuoteReelProps {
 export function QuoteReel({ quotes }: QuoteReelProps) {
   if (!quotes || quotes.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <span className="text-2xl">💬</span>
+      <div className="bg-white rounded-2xl border border-landing-charcoal/5 overflow-hidden">
+        <div className="px-8 py-6 border-b border-landing-charcoal/5">
+          <h2 className="text-[11px] uppercase tracking-[0.2em] text-landing-terracotta font-medium">
             Quote Reel
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-500">No quotes extracted.</p>
-        </CardContent>
-      </Card>
+          </h2>
+        </div>
+        <div className="p-8">
+          <p className="text-landing-stone">No quotes extracted.</p>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <span className="text-2xl">💬</span>
+    <div className="bg-white rounded-2xl border border-landing-charcoal/5 overflow-hidden">
+      <div className="px-8 py-6 border-b border-landing-charcoal/5">
+        <h2 className="text-[11px] uppercase tracking-[0.2em] text-landing-terracotta font-medium mb-1">
           Quote Reel
-        </CardTitle>
-        <p className="text-sm text-gray-500">
+        </h2>
+        <p className="text-sm text-landing-stone">
           Most emotionally resonant moments from the interview
         </p>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
+      </div>
+      <div className="p-8">
+        <div className="space-y-6">
           {quotes.map((item, index) => (
             <div
               key={index}
-              className="relative border-l-4 pl-4 py-2"
+              className="relative border-l-2 pl-6 py-1"
               style={{ borderColor: getEmotionColor(item.emotion) }}
             >
-              <blockquote className="text-lg italic text-gray-800 dark:text-gray-200">
+              <blockquote className="text-lg italic text-landing-charcoal leading-relaxed">
                 &ldquo;{item.quote}&rdquo;
               </blockquote>
-              <div className="mt-2 flex items-center gap-2 flex-wrap">
-                <Badge
-                  variant="secondary"
-                  className="text-xs"
+              <div className="mt-3 flex items-center gap-3 flex-wrap">
+                <span
+                  className="text-[10px] uppercase tracking-wider font-medium px-2.5 py-1 rounded-full"
                   style={{
-                    backgroundColor: getEmotionColor(item.emotion) + "20",
+                    backgroundColor: getEmotionColor(item.emotion) + "15",
                     color: getEmotionColor(item.emotion),
                   }}
                 >
-                  {getEmotionEmoji(item.emotion)} {item.emotion}
-                </Badge>
-                <span className="text-sm text-gray-500">
+                  {item.emotion}
+                </span>
+                <span className="text-sm text-landing-stone">
                   {item.context}
                 </span>
               </div>
             </div>
           ))}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
 function getEmotionColor(emotion: string): string {
   const lowerEmotion = emotion.toLowerCase();
 
-  if (
-    lowerEmotion.includes("frustrat") ||
-    lowerEmotion.includes("angry") ||
-    lowerEmotion.includes("annoyed")
-  ) {
-    return "#ef4444"; // red
+  if (lowerEmotion.includes("frustrat") || lowerEmotion.includes("angry") || lowerEmotion.includes("annoyed")) {
+    return "#b45309"; // terracotta-like
   }
-  if (
-    lowerEmotion.includes("confus") ||
-    lowerEmotion.includes("unsure")
-  ) {
-    return "#f59e0b"; // amber
+  if (lowerEmotion.includes("confus") || lowerEmotion.includes("unsure")) {
+    return "#9a8478"; // stone
   }
-  if (
-    lowerEmotion.includes("happy") ||
-    lowerEmotion.includes("satisf") ||
-    lowerEmotion.includes("delight")
-  ) {
-    return "#22c55e"; // green
+  if (lowerEmotion.includes("happy") || lowerEmotion.includes("satisf") || lowerEmotion.includes("delight")) {
+    return "#2d5a47"; // forest
   }
-  if (
-    lowerEmotion.includes("excit") ||
-    lowerEmotion.includes("enthus")
-  ) {
-    return "#8b5cf6"; // purple
+  if (lowerEmotion.includes("excit") || lowerEmotion.includes("enthus")) {
+    return "#c2724e"; // terracotta
   }
-  if (
-    lowerEmotion.includes("worry") ||
-    lowerEmotion.includes("anxious") ||
-    lowerEmotion.includes("fear")
-  ) {
-    return "#f97316"; // orange
+  if (lowerEmotion.includes("worry") || lowerEmotion.includes("anxious") || lowerEmotion.includes("fear")) {
+    return "#9a8478"; // stone
   }
-  if (
-    lowerEmotion.includes("hope") ||
-    lowerEmotion.includes("optimis")
-  ) {
-    return "#06b6d4"; // cyan
+  if (lowerEmotion.includes("hope") || lowerEmotion.includes("optimis")) {
+    return "#4a7c65"; // forest light
   }
-  if (
-    lowerEmotion.includes("disappoint")
-  ) {
-    return "#6366f1"; // indigo
+  if (lowerEmotion.includes("disappoint")) {
+    return "#9a8478"; // stone
   }
-  if (
-    lowerEmotion.includes("surprise")
-  ) {
-    return "#ec4899"; // pink
+  if (lowerEmotion.includes("surprise")) {
+    return "#c2724e"; // terracotta
   }
 
-  return "#6b7280"; // gray
-}
-
-function getEmotionEmoji(emotion: string): string {
-  const lowerEmotion = emotion.toLowerCase();
-
-  if (
-    lowerEmotion.includes("frustrat") ||
-    lowerEmotion.includes("angry")
-  ) {
-    return "😤";
-  }
-  if (
-    lowerEmotion.includes("confus")
-  ) {
-    return "😕";
-  }
-  if (
-    lowerEmotion.includes("happy") ||
-    lowerEmotion.includes("satisf")
-  ) {
-    return "😊";
-  }
-  if (
-    lowerEmotion.includes("excit")
-  ) {
-    return "🤩";
-  }
-  if (
-    lowerEmotion.includes("worry") ||
-    lowerEmotion.includes("fear")
-  ) {
-    return "😟";
-  }
-  if (
-    lowerEmotion.includes("hope")
-  ) {
-    return "🙂";
-  }
-  if (
-    lowerEmotion.includes("disappoint")
-  ) {
-    return "😞";
-  }
-  if (
-    lowerEmotion.includes("surprise")
-  ) {
-    return "😮";
-  }
-
-  return "💭";
+  return "#9a8478"; // stone default
 }
