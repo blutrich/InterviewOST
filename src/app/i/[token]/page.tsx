@@ -119,7 +119,23 @@ export default function PublicInterviewPage() {
           filter: `interview_id=eq.${currentInterview.id}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
+          const newMessage = payload.new as Message;
+          // Avoid duplicates: check if message already exists (including temp messages with same content)
+          setMessages((prev) => {
+            const exists = prev.some(
+              (m) => m.id === newMessage.id ||
+                     (m.id.startsWith('temp-') && m.content === newMessage.content && m.role === newMessage.role)
+            );
+            if (exists) {
+              // Replace temp message with real one
+              return prev.map((m) =>
+                m.id.startsWith('temp-') && m.content === newMessage.content && m.role === newMessage.role
+                  ? newMessage
+                  : m
+              );
+            }
+            return [...prev, newMessage];
+          });
         }
       )
       .subscribe();
