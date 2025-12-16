@@ -18,7 +18,7 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import { OpportunityNode, OpportunityNodeData } from "./OpportunityNode";
-import { EvidencePanel } from "./EvidencePanel";
+import { InterviewSidePanel } from "./InterviewSidePanel";
 import { Button } from "@/components/ui/button";
 
 interface Opportunity {
@@ -44,6 +44,7 @@ interface OSTCanvasProps {
   projectId: string;
   rootOutcome?: string;
   opportunities: Opportunity[];
+  filterByInterviewIds?: string[]; // Empty array = show all
   onNodeUpdate?: (id: string, position: { x: number; y: number }) => void;
   onNodeSelect?: (opportunity: Opportunity | null) => void;
   onNodeDelete?: (id: string) => void;
@@ -56,6 +57,7 @@ export function OSTCanvas({
   projectId,
   rootOutcome,
   opportunities,
+  filterByInterviewIds = [],
   onNodeUpdate,
   onNodeSelect,
   onNodeDelete,
@@ -67,11 +69,48 @@ export function OSTCanvas({
     useState<Opportunity | null>(null);
   const [showEvidence, setShowEvidence] = useState(false);
 
+  // Filter opportunities based on selected interviews
+  const filteredOpportunities = useMemo(() => {
+    // If no filter (empty array), show all opportunities
+    if (filterByInterviewIds.length === 0) {
+      return opportunities;
+    }
+
+    // Get opportunity IDs that have evidence from selected interviews
+    const opportunityIdsWithEvidence = new Set<string>();
+    opportunities.forEach((opp) => {
+      if (opp.evidence?.some((e) => filterByInterviewIds.includes(e.interview_id))) {
+        opportunityIdsWithEvidence.add(opp.id);
+      }
+    });
+
+    // Also include parent chain to root for filtered opportunities
+    const getParentChain = (oppId: string): string[] => {
+      const opp = opportunities.find((o) => o.id === oppId);
+      if (!opp || !opp.parent_id) return [];
+      return [opp.parent_id, ...getParentChain(opp.parent_id)];
+    };
+
+    // Collect all opportunity IDs to show (with evidence + their parents)
+    const idsToShow = new Set<string>();
+    opportunityIdsWithEvidence.forEach((id) => {
+      idsToShow.add(id);
+      getParentChain(id).forEach((parentId) => idsToShow.add(parentId));
+    });
+
+    // Always include root (outcome type with no parent)
+    opportunities
+      .filter((o) => o.type === "outcome" && !o.parent_id)
+      .forEach((o) => idsToShow.add(o.id));
+
+    return opportunities.filter((opp) => idsToShow.has(opp.id));
+  }, [opportunities, filterByInterviewIds]);
+
   const handleNodeSelect = useCallback((id: string) => {
-    const opp = opportunities.find((o) => o.id === id);
+    const opp = filteredOpportunities.find((o) => o.id === id);
     setSelectedOpportunity(opp || null);
     onNodeSelect?.(opp || null);
-  }, [opportunities, onNodeSelect]);
+  }, [filteredOpportunities, onNodeSelect]);
 
   // Define node types with useMemo to prevent recreation
   const nodeTypes: NodeTypes = useMemo(
@@ -84,7 +123,7 @@ export function OSTCanvas({
 
   // Convert opportunities to React Flow nodes
   const buildNodes = useCallback((): Node[] => {
-    const nodes: Node[] = opportunities.map((opp, index) => ({
+    const nodes: Node[] = filteredOpportunities.map((opp, index) => ({
       id: opp.id,
       type: "opportunity",
       position: opp.position || { x: 250, y: index * 150 },
@@ -103,7 +142,7 @@ export function OSTCanvas({
     }));
 
     // Add root node if rootOutcome exists and there's no outcome node
-    if (rootOutcome && !opportunities.some((o) => o.type === "outcome")) {
+    if (rootOutcome && !filteredOpportunities.some((o) => o.type === "outcome")) {
       nodes.unshift({
         id: "root",
         type: "opportunity",
@@ -123,12 +162,15 @@ export function OSTCanvas({
     }
 
     return nodes;
-  }, [opportunities, rootOutcome, handleNodeSelect, onNodeDelete, onAddChild, onTitleChange]);
+  }, [filteredOpportunities, rootOutcome, handleNodeSelect, onNodeDelete, onAddChild, onTitleChange]);
 
   // Convert parent relationships to edges
   const buildEdges = useCallback((): Edge[] => {
-    return opportunities
-      .filter((opp) => opp.parent_id)
+    // Get IDs of nodes we're showing
+    const visibleIds = new Set(filteredOpportunities.map((o) => o.id));
+
+    return filteredOpportunities
+      .filter((opp) => opp.parent_id && visibleIds.has(opp.parent_id))
       .map((opp) => ({
         id: `e-${opp.parent_id}-${opp.id}`,
         source: opp.parent_id!,
@@ -140,16 +182,16 @@ export function OSTCanvas({
           strokeWidth: 2,
         },
       }));
-  }, [opportunities]);
+  }, [filteredOpportunities]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes());
   const [edges, setEdges, onEdgesChange] = useEdgesState(buildEdges());
 
-  // Update nodes when opportunities change
+  // Update nodes when opportunities or filter changes
   useEffect(() => {
     setNodes(buildNodes());
     setEdges(buildEdges());
-  }, [opportunities, rootOutcome, buildNodes, buildEdges, setNodes, setEdges]);
+  }, [filteredOpportunities, rootOutcome, buildNodes, buildEdges, setNodes, setEdges]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -329,16 +371,13 @@ export function OSTCanvas({
         </div>
       )}
 
-      {/* Evidence panel */}
-      {showEvidence && selectedOpportunity && (
-        <div className="absolute top-4 left-4">
-          <EvidencePanel
-            opportunityTitle={selectedOpportunity.title}
-            evidence={selectedOpportunity.evidence || []}
-            onClose={() => setShowEvidence(false)}
-          />
-        </div>
-      )}
+      {/* Interview Side Panel */}
+      <InterviewSidePanel
+        opportunityTitle={selectedOpportunity?.title || ""}
+        evidence={selectedOpportunity?.evidence || []}
+        isOpen={showEvidence}
+        onClose={() => setShowEvidence(false)}
+      />
     </div>
   );
 }

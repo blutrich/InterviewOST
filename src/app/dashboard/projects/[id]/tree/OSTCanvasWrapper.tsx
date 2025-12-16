@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { OSTCanvas } from "@/components/tree";
+import { OSTCanvas, InterviewSelector } from "@/components/tree";
 import type { Edge } from "@xyflow/react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,16 +37,26 @@ interface Opportunity {
   }>;
 }
 
+interface Interview {
+  id: string;
+  participant_name: string | null;
+  status: string;
+  created_at: string;
+  snapshot_status?: string;
+}
+
 interface OSTCanvasWrapperProps {
   projectId: string;
   rootOutcome?: string;
   opportunities: Opportunity[];
+  interviews?: Interview[];
 }
 
 export function OSTCanvasWrapper({
   projectId,
   rootOutcome,
   opportunities,
+  interviews = [],
 }: OSTCanvasWrapperProps) {
   const router = useRouter();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -57,6 +67,7 @@ export function OSTCanvasWrapper({
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [saving, setSaving] = useState(false);
+  const [selectedInterviewIds, setSelectedInterviewIds] = useState<string[]>([]);
 
   const handleNodeUpdate = async (
     id: string,
@@ -216,11 +227,24 @@ export function OSTCanvasWrapper({
   };
 
   return (
-    <>
+    <div className="relative w-full h-full">
+      {/* Interview Selector Sidebar */}
+      {interviews.length > 0 && (
+        <div className="absolute top-4 left-4 z-10 w-64">
+          <InterviewSelector
+            interviews={interviews}
+            selectedIds={selectedInterviewIds}
+            onSelectionChange={setSelectedInterviewIds}
+          />
+        </div>
+      )}
+
+      {/* OST Canvas */}
       <OSTCanvas
         projectId={projectId}
         rootOutcome={rootOutcome}
         opportunities={opportunities}
+        filterByInterviewIds={selectedInterviewIds}
         onNodeUpdate={handleNodeUpdate}
         onNodeDelete={handleDelete}
         onAddChild={handleAddChild}
@@ -291,6 +315,6 @@ export function OSTCanvasWrapper({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 }

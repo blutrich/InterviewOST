@@ -13,13 +13,14 @@ export default async function OpportunityTreePage({ params }: Props) {
   const { id: projectId } = await params;
   const supabase = await createClient();
 
-  // Fetch project with opportunities
+  // Fetch project with opportunities and interviews
   const { data: project, error } = await supabase
     .from("projects")
     .select(
       `
       *,
-      opportunities(*, evidence(*))
+      opportunities(*, evidence(*)),
+      interviews(id, participant_name, status, created_at, snapshots(id, status))
     `
     )
     .eq("id", projectId)
@@ -30,6 +31,16 @@ export default async function OpportunityTreePage({ params }: Props) {
   }
 
   const opportunities = project.opportunities || [];
+  const interviews = (project.interviews || []).map((interview: {
+    id: string;
+    participant_name: string | null;
+    status: string;
+    created_at: string;
+    snapshots?: Array<{ id: string; status: string }>;
+  }) => ({
+    ...interview,
+    snapshot_status: interview.snapshots?.[0]?.status,
+  }));
   const approvedCount = opportunities.filter(
     (o: { status: string }) => o.status === "approved"
   ).length;
@@ -116,6 +127,7 @@ export default async function OpportunityTreePage({ params }: Props) {
             projectId={projectId}
             rootOutcome={project.desired_outcome}
             opportunities={opportunities}
+            interviews={interviews}
           />
         </div>
       )}

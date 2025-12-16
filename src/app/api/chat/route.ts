@@ -105,7 +105,7 @@ Respond naturally to continue the interview.
     let assistantMessage = response.text;
 
     // Remove patterns like *[Mental note: ...]* or *[Note: ...]*
-    assistantMessage = assistantMessage.replace(/\*\[.*?\]\*\s*/gs, '');
+    assistantMessage = assistantMessage.replace(/\*\[[\s\S]*?\]\*\s*/g, '');
 
     // Remove patterns like [Internal: ...] or [Thinking: ...]
     assistantMessage = assistantMessage.replace(/\[(?:Internal|Mental note|Note|Thinking|Ready to|Will redirect).*?\]\s*/gi, '');
