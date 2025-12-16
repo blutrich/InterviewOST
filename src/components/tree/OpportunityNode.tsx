@@ -81,7 +81,7 @@ function OpportunityNodeComponent({ data, selected }: OpportunityNodeProps) {
       case "solution":
         return "SOLUTION";
       default:
-        return nodeData.type?.toUpperCase() || "";
+        return "";
     }
   };
 
