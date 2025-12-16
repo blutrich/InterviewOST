@@ -8,7 +8,7 @@ export interface OpportunityNodeData {
   id: string;
   title: string;
   description?: string;
-  type: "outcome" | "opportunity" | "solution";
+  type: "outcome" | "opportunity" | "solution" | "unmet_need" | "workaround";
   status: "suggested" | "approved" | "rejected" | "merged";
   evidenceCount: number;
   onSelect?: (id: string) => void;
@@ -41,11 +41,14 @@ function OpportunityNodeComponent({ data, selected }: OpportunityNodeProps) {
       case "outcome":
         return "bg-white border-purple-500 border-l-4";
       case "opportunity":
+      case "unmet_need":
         return "bg-white border-amber-500 border-l-4";
+      case "workaround":
+        return "bg-white border-blue-500 border-l-4";
       case "solution":
         return "bg-white border-green-500 border-l-4";
       default:
-        return "bg-white border-gray-300";
+        return "bg-white border-gray-300 border-l-4";
     }
   };
 
@@ -54,7 +57,10 @@ function OpportunityNodeComponent({ data, selected }: OpportunityNodeProps) {
       case "outcome":
         return "text-purple-600";
       case "opportunity":
+      case "unmet_need":
         return "text-amber-600";
+      case "workaround":
+        return "text-blue-600";
       case "solution":
         return "text-green-600";
       default:
@@ -68,12 +74,20 @@ function OpportunityNodeComponent({ data, selected }: OpportunityNodeProps) {
         return "OUTCOME";
       case "opportunity":
         return "OPPORTUNITY";
+      case "unmet_need":
+        return "UNMET NEED";
+      case "workaround":
+        return "WORKAROUND";
       case "solution":
         return "SOLUTION";
       default:
-        return "";
+        return nodeData.type?.toUpperCase() || "";
     }
   };
+
+  // Helper to check if this node can have children
+  const canAddOpportunity = nodeData.type !== "solution";
+  const canAddSolution = nodeData.type === "opportunity" || nodeData.type === "unmet_need" || nodeData.type === "workaround";
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -170,7 +184,7 @@ function OpportunityNodeComponent({ data, selected }: OpportunityNodeProps) {
         ${selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"}
       `}>
         {/* Add Opportunity - amber/orange button */}
-        {nodeData.type !== "solution" && (
+        {canAddOpportunity && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -183,7 +197,7 @@ function OpportunityNodeComponent({ data, selected }: OpportunityNodeProps) {
           </button>
         )}
         {/* Add Solution - green button */}
-        {nodeData.type === "opportunity" && (
+        {canAddSolution && (
           <button
             onClick={(e) => {
               e.stopPropagation();

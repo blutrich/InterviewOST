@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { OSTCanvas, InterviewSelector } from "@/components/tree";
 import type { Edge } from "@xyflow/react";
@@ -22,7 +22,7 @@ interface Opportunity {
   id: string;
   title: string;
   description?: string;
-  type: "outcome" | "opportunity" | "solution";
+  type: "outcome" | "opportunity" | "solution" | "unmet_need" | "workaround";
   status: "suggested" | "approved" | "rejected" | "merged";
   parent_id: string | null;
   evidence_count: number;
@@ -55,10 +55,12 @@ interface OSTCanvasWrapperProps {
 export function OSTCanvasWrapper({
   projectId,
   rootOutcome,
-  opportunities,
+  opportunities: initialOpportunities,
   interviews = [],
 }: OSTCanvasWrapperProps) {
   const router = useRouter();
+  // Use local state to avoid full page refresh
+  const [opportunities, setOpportunities] = useState<Opportunity[]>(initialOpportunities);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);

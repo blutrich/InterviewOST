@@ -253,7 +253,10 @@ export function OSTCanvas({
               case "outcome":
                 return "#a855f7"; // purple
               case "opportunity":
+              case "unmet_need":
                 return "#f59e0b"; // amber
+              case "workaround":
+                return "#3b82f6"; // blue
               case "solution":
                 return "#22c55e"; // green
               default:
@@ -274,7 +277,11 @@ export function OSTCanvas({
           </div>
           <div className="flex items-center gap-2 text-xs">
             <div className="w-3 h-3 rounded bg-amber-500" />
-            <span>Opportunity</span>
+            <span>Opportunity / Unmet Need</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs">
+            <div className="w-3 h-3 rounded bg-blue-500" />
+            <span>Workaround</span>
           </div>
           <div className="flex items-center gap-2 text-xs">
             <div className="w-3 h-3 rounded bg-green-500" />
