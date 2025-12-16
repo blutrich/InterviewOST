@@ -71,52 +71,52 @@ export function InterviewSelector({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg border shadow-sm">
+    <div className="bg-white/95 backdrop-blur-sm rounded-xl border border-landing-charcoal/10 shadow-lg overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+        className="w-full flex items-center justify-between p-3 hover:bg-landing-ivory/50 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-gray-500" />
-          <span className="font-medium text-sm">Filter by Interview</span>
+          <Filter className="h-4 w-4 text-landing-stone" />
+          <span className="text-[11px] uppercase tracking-wider font-medium text-landing-charcoal">Filter Interviews</span>
           {!allSelected && (
-            <Badge variant="secondary" className="text-xs">
-              {selectedIds.length} selected
-            </Badge>
+            <span className="text-[10px] uppercase tracking-wider font-medium px-2 py-0.5 rounded-full bg-landing-forest/10 text-landing-forest">
+              {selectedIds.length}
+            </span>
           )}
         </div>
         {isExpanded ? (
-          <ChevronUp className="h-4 w-4 text-gray-400" />
+          <ChevronUp className="h-4 w-4 text-landing-stone" />
         ) : (
-          <ChevronDown className="h-4 w-4 text-gray-400" />
+          <ChevronDown className="h-4 w-4 text-landing-stone" />
         )}
       </button>
 
       {/* Content */}
       {isExpanded && (
-        <div className="border-t">
+        <div className="border-t border-landing-charcoal/5">
           {/* Select All Option */}
           <div
-            className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 ${
-              allSelected ? "bg-blue-50 dark:bg-blue-900/20" : ""
+            className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-landing-ivory/50 transition-colors ${
+              allSelected ? "bg-landing-forest/5" : ""
             }`}
             onClick={handleSelectAll}
           >
-            <Checkbox checked={allSelected} />
-            <span className="text-sm font-medium">
+            <Checkbox checked={allSelected} className="border-landing-charcoal/20" />
+            <span className="text-xs text-landing-charcoal">
               All Interviews ({completedInterviews.length})
             </span>
           </div>
 
           {/* Divider */}
-          <div className="border-t mx-3" />
+          <div className="border-t border-landing-charcoal/5 mx-3" />
 
           {/* Interview List */}
-          <ScrollArea className="max-h-[300px]">
+          <ScrollArea className="max-h-[250px]">
             <div className="p-2 space-y-1">
               {completedInterviews.length === 0 ? (
-                <p className="text-xs text-gray-500 text-center py-4">
+                <p className="text-xs text-landing-stone text-center py-4">
                   No completed interviews yet
                 </p>
               ) : (
@@ -125,25 +125,25 @@ export function InterviewSelector({
                   return (
                     <div
                       key={interview.id}
-                      className={`flex items-start gap-3 p-2 rounded-md cursor-pointer transition-colors ${
+                      className={`flex items-start gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
                         isSelected && !allSelected
-                          ? "bg-blue-50 dark:bg-blue-900/20"
-                          : "hover:bg-gray-50 dark:hover:bg-gray-800"
+                          ? "bg-landing-forest/5"
+                          : "hover:bg-landing-ivory/50"
                       }`}
                       onClick={() => handleToggleInterview(interview.id)}
                     >
                       <Checkbox
                         checked={isSelected || allSelected}
-                        className="mt-0.5"
+                        className="mt-0.5 border-landing-charcoal/20"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <User className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                          <span className="text-sm font-medium truncate">
+                          <User className="h-3 w-3 text-landing-stone flex-shrink-0" />
+                          <span className="text-xs font-medium text-landing-charcoal truncate">
                             {interview.participant_name || "Anonymous"}
                           </span>
                         </div>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                        <div className="flex items-center gap-3 mt-1 text-[10px] text-landing-stone">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
                             {new Date(interview.created_at).toLocaleDateString()}
@@ -155,21 +155,14 @@ export function InterviewSelector({
                             </span>
                           )}
                         </div>
-                        {interview.evidence_count !== undefined &&
-                          interview.evidence_count > 0 && (
-                            <Badge
-                              variant="secondary"
-                              className="mt-1 text-[10px]"
-                            >
-                              {interview.evidence_count} evidence
-                            </Badge>
-                          )}
                       </div>
-                      <Badge className={`text-[10px] ${getStatusColor(interview.snapshot_status || interview.status)}`}>
-                        {interview.snapshot_status === "approved"
-                          ? "Mapped"
-                          : interview.snapshot_status || interview.status}
-                      </Badge>
+                      <span className={`text-[9px] uppercase tracking-wider font-medium px-2 py-0.5 rounded-full ${
+                        interview.snapshot_status === "approved"
+                          ? "bg-landing-forest/10 text-landing-forest"
+                          : "bg-landing-terracotta/10 text-landing-terracotta"
+                      }`}>
+                        {interview.snapshot_status === "approved" ? "Mapped" : interview.status}
+                      </span>
                     </div>
                   );
                 })
@@ -179,9 +172,9 @@ export function InterviewSelector({
 
           {/* Footer hint */}
           {completedInterviews.length > 0 && (
-            <div className="border-t p-2">
-              <p className="text-[10px] text-gray-400 text-center">
-                Select interviews to filter the tree
+            <div className="border-t border-landing-charcoal/5 p-2">
+              <p className="text-[9px] text-landing-stone/60 text-center">
+                Filter tree & transcript by interview
               </p>
             </div>
           )}

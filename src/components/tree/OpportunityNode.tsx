@@ -2,6 +2,12 @@
 
 import { memo, useState, useRef, useEffect } from "react";
 import { Handle, Position } from "@xyflow/react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export interface OpportunityNodeData {
   [key: string]: unknown;
@@ -85,6 +91,43 @@ function OpportunityNodeComponent({ data, selected }: OpportunityNodeProps) {
     }
   };
 
+  const getTypeTooltip = () => {
+    switch (nodeData.type) {
+      case "outcome":
+        return {
+          title: "Outcome",
+          description: "The business goal or how the company creates value. This is the root of your tree.",
+          example: "e.g., Increase user retention by 20%"
+        };
+      case "opportunity":
+        return {
+          title: "Opportunity",
+          description: "A customer need, pain point, or desire that drives the outcome. Opportunities are discovered through interviews.",
+          example: "e.g., Users struggle to find relevant content"
+        };
+      case "unmet_need":
+        return {
+          title: "Unmet Need",
+          description: "A specific customer need that isn't being addressed by current solutions.",
+          example: "e.g., Need to compare options side-by-side"
+        };
+      case "workaround":
+        return {
+          title: "Workaround",
+          description: "A behavior customers use to compensate for a missing feature or capability.",
+          example: "e.g., Exporting to spreadsheets for analysis"
+        };
+      case "solution":
+        return {
+          title: "Solution",
+          description: "A product, feature, or intervention that addresses an opportunity. Multiple solutions can address one opportunity.",
+          example: "e.g., Add recommendation algorithm"
+        };
+      default:
+        return { title: "", description: "", example: "" };
+    }
+  };
+
   // Helper to check if this node can have children
   const canAddOpportunity = nodeData.type !== "solution";
   const canAddSolution = nodeData.type === "opportunity" || nodeData.type === "unmet_need" || nodeData.type === "workaround";
@@ -133,10 +176,26 @@ function OpportunityNodeComponent({ data, selected }: OpportunityNodeProps) {
         className="!bg-white !border-2 !border-gray-400 !w-3 !h-3"
       />
 
-      {/* Type label */}
-      <div className={`text-[10px] font-bold tracking-wider mb-2 ${getLabelColor()}`}>
-        {getTypeLabel()}
-      </div>
+      {/* Type label with tooltip */}
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className={`text-[10px] font-bold tracking-wider mb-2 ${getLabelColor()} cursor-help inline-flex items-center gap-1`}>
+              {getTypeLabel()}
+              <svg className="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+              </svg>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-[250px] p-3 bg-landing-charcoal text-white border-0">
+            <div className="space-y-1.5">
+              <p className="font-semibold text-sm">{getTypeTooltip().title}</p>
+              <p className="text-xs text-white/80 leading-relaxed">{getTypeTooltip().description}</p>
+              <p className="text-xs text-white/60 italic">{getTypeTooltip().example}</p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       {/* Title - editable */}
       {isEditing ? (

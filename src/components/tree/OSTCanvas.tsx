@@ -245,7 +245,7 @@ export function OSTCanvas({
         className="[&_.react-flow__edge:hover_.react-flow__edge-path]:stroke-red-400 [&_.react-flow__edge:hover_.react-flow__edge-path]:stroke-[3px]"
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
-        <Controls />
+        <Controls position="bottom-right" className="!bottom-14 !right-4" />
         <MiniMap
           nodeColor={(node) => {
             const data = node.data as OpportunityNodeData;
@@ -267,31 +267,6 @@ export function OSTCanvas({
         />
       </ReactFlow>
 
-      {/* Legend */}
-      <div className="absolute bottom-4 left-4 bg-white dark:bg-gray-800 rounded-lg p-3 shadow-md">
-        <p className="text-xs font-medium text-gray-500 mb-2">Legend</p>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs">
-            <div className="w-3 h-3 rounded bg-purple-500" />
-            <span>Outcome (Root)</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <div className="w-3 h-3 rounded bg-amber-500" />
-            <span>Opportunity / Unmet Need</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <div className="w-3 h-3 rounded bg-blue-500" />
-            <span>Workaround</span>
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <div className="w-3 h-3 rounded bg-green-500" />
-            <span>Solution</span>
-          </div>
-        </div>
-        <p className="text-[10px] text-gray-400 mt-2 border-t pt-2">
-          Click a line to disconnect
-        </p>
-      </div>
 
       {/* Edge delete confirmation popup */}
       {selectedEdge && (

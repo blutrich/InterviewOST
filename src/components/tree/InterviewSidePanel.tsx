@@ -241,7 +241,7 @@ export function InterviewSidePanel({
             )}
 
             {/* Messages */}
-            <ScrollArea className="flex-1">
+            <div className="flex-1 overflow-y-auto">
               <div className="p-4 space-y-4">
                 {loading ? (
                   <div className="flex items-center justify-center py-12">
@@ -319,7 +319,7 @@ export function InterviewSidePanel({
                   })
                 )}
               </div>
-            </ScrollArea>
+            </div>
 
             {/* Back to Evidence Link */}
             <div className="p-3 border-t bg-gray-50 dark:bg-gray-800">
