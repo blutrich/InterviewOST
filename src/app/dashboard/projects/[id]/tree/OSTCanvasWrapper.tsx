@@ -224,21 +224,28 @@ export function OSTCanvasWrapper({
     setSaving(true);
     try {
       // Find parent position to calculate child position
-      const parent = opportunities.find((o) => o.id === addParentId);
+      // Note: "root" is a virtual node ID for the root outcome display
+      const isRootParent = addParentId === "root";
+      const parent = isRootParent ? null : opportunities.find((o) => o.id === addParentId);
       const parentPos = parent?.position || { x: 400, y: 150 };
-      const childrenCount = opportunities.filter((o) => o.parent_id === addParentId).length;
+      const childrenCount = opportunities.filter((o) =>
+        isRootParent ? o.parent_id === null : o.parent_id === addParentId
+      ).length;
 
       const newPosition = {
         x: parentPos.x + (childrenCount * 50) - 25,
         y: parentPos.y + 180,
       };
 
+      // If parent is "root" (virtual node), set parentId to null in database
+      const dbParentId = isRootParent ? null : addParentId;
+
       const res = await fetch("/api/opportunities", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId,
-          parentId: addParentId,
+          parentId: dbParentId,
           title: newTitle,
           description: newDescription,
           type: addType,
@@ -249,6 +256,7 @@ export function OSTCanvasWrapper({
 
       if (res.ok) {
         const data = await res.json();
+        console.log("Created opportunity:", data.opportunity);
         // Update local state instead of full page refresh to preserve canvas position
         const newOpportunity: Opportunity = {
           id: data.opportunity.id,
@@ -256,12 +264,18 @@ export function OSTCanvasWrapper({
           description: newDescription,
           type: addType,
           status: "approved",
-          parent_id: addParentId,
+          parent_id: dbParentId, // Use null for root parent
           evidence_count: 0,
           position: newPosition,
           evidence: [],
         };
-        setOpportunities((prev) => [...prev, newOpportunity]);
+        console.log("Adding to local state:", newOpportunity);
+        setOpportunities((prev) => {
+          console.log("Previous opportunities:", prev.length);
+          const newState = [...prev, newOpportunity];
+          console.log("New opportunities:", newState.length);
+          return newState;
+        });
         toast.success(`${addType === "solution" ? "Solution" : "Opportunity"} created`);
         setAddDialogOpen(false);
       } else {

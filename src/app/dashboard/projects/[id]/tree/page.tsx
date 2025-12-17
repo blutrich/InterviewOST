@@ -3,6 +3,9 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { OSTCanvasWrapper } from "./OSTCanvasWrapper";
 
+// Force dynamic rendering to always fetch fresh data
+export const dynamic = "force-dynamic";
+
 interface Props {
   params: Promise<{ id: string }>;
 }

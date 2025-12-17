@@ -169,29 +169,56 @@ export function OSTCanvas({
     // Get IDs of nodes we're showing
     const visibleIds = new Set(filteredOpportunities.map((o) => o.id));
 
-    return filteredOpportunities
-      .filter((opp) => opp.parent_id && visibleIds.has(opp.parent_id))
-      .map((opp) => ({
-        id: `e-${opp.parent_id}-${opp.id}`,
-        source: opp.parent_id!,
-        target: opp.id,
-        type: "smoothstep",
-        animated: opp.status === "suggested",
-        style: {
-          stroke: opp.status === "suggested" ? "#f59e0b" : "#6b7280",
-          strokeWidth: 2,
-        },
-      }));
-  }, [filteredOpportunities]);
+    // Check if we have a virtual root node
+    const hasVirtualRoot = rootOutcome && !filteredOpportunities.some((o) => o.type === "outcome");
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes());
-  const [edges, setEdges, onEdgesChange] = useEdgesState(buildEdges());
+    const edges: Edge[] = [];
 
-  // Update nodes when opportunities or filter changes
+    filteredOpportunities.forEach((opp) => {
+      if (opp.parent_id && visibleIds.has(opp.parent_id)) {
+        // Normal edge to existing parent
+        edges.push({
+          id: `e-${opp.parent_id}-${opp.id}`,
+          source: opp.parent_id,
+          target: opp.id,
+          type: "smoothstep",
+          animated: opp.status === "suggested",
+          style: {
+            stroke: opp.status === "suggested" ? "#f59e0b" : "#6b7280",
+            strokeWidth: 2,
+          },
+        });
+      } else if (!opp.parent_id && hasVirtualRoot && opp.type !== "outcome") {
+        // Connect top-level opportunities to virtual root node
+        edges.push({
+          id: `e-root-${opp.id}`,
+          source: "root",
+          target: opp.id,
+          type: "smoothstep",
+          animated: opp.status === "suggested",
+          style: {
+            stroke: opp.status === "suggested" ? "#f59e0b" : "#6b7280",
+            strokeWidth: 2,
+          },
+        });
+      }
+    });
+
+    return edges;
+  }, [filteredOpportunities, rootOutcome]);
+
+  const initialNodes = useMemo(() => buildNodes(), []);
+  const initialEdges = useMemo(() => buildEdges(), []);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // Update nodes when opportunities change
   useEffect(() => {
     setNodes(buildNodes());
     setEdges(buildEdges());
-  }, [filteredOpportunities, rootOutcome, buildNodes, buildEdges, setNodes, setEdges]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opportunities.length, opportunities.map(o => o.id).join(','), filterByInterviewIds.join(','), rootOutcome]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),

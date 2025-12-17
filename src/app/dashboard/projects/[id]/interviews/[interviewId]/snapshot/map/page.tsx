@@ -165,13 +165,20 @@ export default function MappingPage() {
       const rootOpps: typeof toSave = [];
       const childOpps: Map<string, typeof toSave> = new Map();
 
+      // Get all titles of opportunities being saved
+      const toSaveTitles = new Set(toSave.map((o) => o.title));
+
       for (const opp of toSave) {
         const parentSuggestion = suggestions.parent_suggestions.find(
           (p) => p.opportunity_title === opp.title
         );
         const parentTitle = parentSuggestion?.suggested_parent_title;
 
-        if (!parentTitle) {
+        // An opportunity is a "root" if:
+        // 1. It has no parent suggestion (null)
+        // 2. Its suggested parent is not in the list of opportunities being saved
+        //    (e.g., parent refers to existing tree item or is invalid)
+        if (!parentTitle || !toSaveTitles.has(parentTitle)) {
           rootOpps.push(opp);
         } else {
           const children = childOpps.get(parentTitle) || [];
