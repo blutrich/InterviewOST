@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     const supabase = await createServiceClient();
     const { data: interview, error: fetchError } = await supabase
       .from("interviews")
-      .select("*, templates(rubric), projects(model)")
+      .select("*, templates(rubric), projects(model, name, research_goals, target_audience, desired_outcome)")
       .eq("access_token", token)
       .single();
 
@@ -40,9 +40,22 @@ export async function POST(req: Request) {
       return new Response("Interview is not active", { status: 403 });
     }
 
-    // Get the rubric from the template
+    // Get the rubric and project context
     const rubric = interview.templates?.rubric;
-    const model = interview.projects?.model;
+    const project = interview.projects;
+    const model = project?.model;
+
+    // Build project context for the agent
+    const projectContext = project ? `
+## Research Context
+
+**Project:** ${project.name || "Untitled"}
+**Research Goals:** ${project.research_goals || "Not specified"}
+**Target Audience:** ${project.target_audience || "Not specified"}
+**Desired Outcome:** ${project.desired_outcome || "Not specified"}
+
+Use this context to guide your questions and understand what insights we're looking for.
+` : "";
 
     // Save user message to database (skip system messages)
     if (!isStart) {
@@ -67,9 +80,8 @@ export async function POST(req: Request) {
     // Build the prompt for the interviewer agent
     const interviewer = mastra.getAgent("interviewerAgent");
 
-    // Create context with rubric
-    const systemContext = rubric
-      ? `
+    // Create context with project goals and rubric
+    const systemContext = `${projectContext}${rubric ? `
 ## Interview Rubric
 ${JSON.stringify(rubric, null, 2)}
 
@@ -77,8 +89,8 @@ ${JSON.stringify(rubric, null, 2)}
 Follow this rubric to conduct the interview. Start with the introduction if this is the beginning.
 Remember to use story-based questions: "Tell me about a time when..."
 If the participant gives vague answers, gently redirect to specific examples.
-`
-      : "";
+Keep the research goals and desired outcome in mind - probe deeper on topics that relate to them.
+` : ""}`;
 
     // For the first message, we need to generate the opening
     let prompt = "";
