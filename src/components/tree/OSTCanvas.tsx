@@ -213,21 +213,11 @@ export function OSTCanvas({
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Create stable dependency keys for opportunities
-  const opportunitiesKey = useMemo(() => {
-    const ids = opportunities.map(o => o.id).join(',');
-    const parentIds = opportunities.map(o => o.parent_id || 'null').join(',');
-    return `${opportunities.length}:${ids}:${parentIds}`;
-  }, [opportunities]);
-
-  const filterKey = useMemo(() => filterByInterviewIds.join(','), [filterByInterviewIds]);
-
-  // Update nodes when opportunities change (including parent_id for edge updates)
+  // Update nodes and edges when opportunities or filters change
   useEffect(() => {
     setNodes(buildNodes());
     setEdges(buildEdges());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opportunitiesKey, filterKey, rootOutcome]);
+  }, [buildNodes, buildEdges, setNodes, setEdges]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
