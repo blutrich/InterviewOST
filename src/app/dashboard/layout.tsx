@@ -72,6 +72,12 @@ export default async function DashboardLayout({
               >
                 Projects
               </Link>
+              <Link
+                href="/dashboard/docs"
+                className="text-[13px] text-landing-stone hover:text-landing-charcoal transition-colors uppercase tracking-wider"
+              >
+                Docs
+              </Link>
             </nav>
           </div>
 
