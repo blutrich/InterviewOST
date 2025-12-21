@@ -1,9 +1,23 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { mastra } from "@/mastra";
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  rateLimitResponse,
+  RATE_LIMIT_CONFIGS,
+} from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
-    const { interviewId, token, message, isStart } = await req.json();
+    const body = await req.json();
+    const { interviewId, token, message, isStart } = body;
+
+    // Rate limiting - use IP + token as identifier
+    const identifier = getClientIdentifier(req, token, "chat");
+    const rateLimitResult = checkRateLimit(identifier, RATE_LIMIT_CONFIGS.chat);
+    if (!rateLimitResult.success) {
+      return rateLimitResponse(rateLimitResult);
+    }
 
     // Validate access token
     const supabase = await createServiceClient();
@@ -17,6 +31,11 @@ export async function POST(req: Request) {
       return new Response("Interview not found", { status: 404 });
     }
 
+    // Verify interviewId matches the token's interview
+    if (interview.id !== interviewId) {
+      return new Response("Interview ID mismatch", { status: 403 });
+    }
+
     if (interview.status !== "active" && !isStart) {
       return new Response("Interview is not active", { status: 403 });
     }
@@ -27,11 +46,15 @@ export async function POST(req: Request) {
 
     // Save user message to database (skip system messages)
     if (!isStart) {
-      await supabase.from("messages").insert({
+      const { error: userMsgError } = await supabase.from("messages").insert({
         interview_id: interviewId,
         role: "user",
         content: message,
       });
+      if (userMsgError) {
+        console.error("Failed to save user message:", userMsgError);
+        return new Response("Failed to save message", { status: 500 });
+      }
     }
 
     // Get conversation history
@@ -123,21 +146,30 @@ Respond naturally to continue the interview.
     assistantMessage = assistantMessage.replace(/\s*\[INTERVIEW_COMPLETE\]\s*/g, '').trim();
 
     // Save assistant message to database
-    await supabase.from("messages").insert({
+    const { error: assistantMsgError } = await supabase.from("messages").insert({
       interview_id: interviewId,
       role: "assistant",
       content: assistantMessage,
     });
+    if (assistantMsgError) {
+      console.error("Failed to save assistant message:", assistantMsgError);
+      // Still return the response to user, but log the error
+      // The message was generated successfully, just not persisted
+    }
 
     // If interview is complete, update the status
     if (isComplete) {
-      await supabase
+      const { error: completeError } = await supabase
         .from("interviews")
         .update({
           status: "completed",
           completed_at: new Date().toISOString(),
         })
         .eq("id", interviewId);
+      if (completeError) {
+        console.error("Failed to mark interview complete:", completeError);
+        // Don't fail the request, but log the error
+      }
     }
 
     // Return the response

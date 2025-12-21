@@ -1,6 +1,41 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient, getAuthenticatedUser, verifyProjectOwnership } from "@/lib/supabase/server";
 import { mastra } from "@/mastra";
 import { z } from "zod";
+import { NextResponse } from "next/server";
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  rateLimitResponse,
+  RATE_LIMIT_CONFIGS,
+} from "@/lib/rate-limit";
+
+// Input validation schemas
+const generateOpportunitiesSchema = z.object({
+  snapshotId: z.string().uuid("Invalid snapshot ID"),
+  projectId: z.string().uuid("Invalid project ID"),
+});
+
+const createUpdateOpportunitySchema = z.object({
+  id: z.string().uuid("Invalid opportunity ID").optional(),
+  projectId: z.string().uuid("Invalid project ID"),
+  parentId: z.string().uuid("Invalid parent ID").nullable().optional(),
+  title: z.string().min(1, "Title is required").max(200, "Title too long"),
+  description: z.string().max(2000, "Description too long").optional(),
+  type: z.enum(["opportunity", "pain_point", "unmet_need", "workaround"]).optional(),
+  status: z.enum(["suggested", "approved", "rejected", "archived"]).optional(),
+  position: z.object({
+    x: z.number(),
+    y: z.number(),
+  }).optional(),
+});
+
+const addEvidenceSchema = z.object({
+  opportunityId: z.string().uuid("Invalid opportunity ID"),
+  snapshotId: z.string().uuid("Invalid snapshot ID").optional(),
+  interviewId: z.string().uuid("Invalid interview ID").optional(),
+  quote: z.string().min(1, "Quote is required").max(2000, "Quote too long"),
+  context: z.string().max(1000, "Context too long").optional(),
+});
 
 // Schema for opportunity suggestions from mapper agent
 const opportunitySuggestionsSchema = z.object({
@@ -35,15 +70,35 @@ const opportunitySuggestionsSchema = z.object({
 // POST: Generate opportunity suggestions from a snapshot
 export async function POST(req: Request) {
   try {
-    const { snapshotId, projectId } = await req.json();
+    // Auth check
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (authError) return authError;
 
-    if (!snapshotId || !projectId) {
-      return new Response("Snapshot ID and Project ID are required", {
-        status: 400,
-      });
+    // Rate limiting - use user ID as identifier for authenticated endpoints
+    const identifier = getClientIdentifier(req, user!.id, "opportunities");
+    const rateLimitResult = checkRateLimit(identifier, RATE_LIMIT_CONFIGS.ai);
+    if (!rateLimitResult.success) {
+      return rateLimitResponse(rateLimitResult);
     }
 
-    const supabase = await createServiceClient();
+    // Validate input
+    const body = await req.json();
+    const validated = generateOpportunitiesSchema.safeParse(body);
+    if (!validated.success) {
+      return NextResponse.json(
+        { error: validated.error.errors[0]?.message || "Invalid input" },
+        { status: 400 }
+      );
+    }
+    const { snapshotId, projectId } = validated.data;
+
+    // Authorization: verify user owns this project
+    const { authorized, error: ownershipError } = await verifyProjectOwnership(projectId, user!.id);
+    if (!authorized) {
+      return NextResponse.json({ error: ownershipError }, { status: 403 });
+    }
+
+    const supabase = await createClient();
 
     // Fetch snapshot with interview data
     const { data: snapshot, error: snapshotError } = await supabase
@@ -53,13 +108,11 @@ export async function POST(req: Request) {
       .single();
 
     if (snapshotError || !snapshot) {
-      return new Response("Snapshot not found", { status: 404 });
+      return NextResponse.json({ error: "Snapshot not found" }, { status: 404 });
     }
 
     if (snapshot.status !== "approved") {
-      return new Response("Snapshot must be approved before mapping", {
-        status: 400,
-      });
+      return NextResponse.json({ error: "Snapshot must be approved before mapping" }, { status: 400 });
     }
 
     // Fetch existing opportunities for deduplication
@@ -165,10 +218,10 @@ IMPORTANT: Return ONLY a valid JSON object with this exact structure (no markdow
     } catch (parseError) {
       console.error("Failed to parse mapper response:", parseError);
       console.error("Raw response:", response.text);
-      return new Response("Failed to parse opportunity suggestions", { status: 500 });
+      return NextResponse.json({ error: "Failed to parse opportunity suggestions" }, { status: 500 });
     }
 
-    return Response.json({
+    return NextResponse.json({
       success: true,
       suggestions,
       snapshotId,
@@ -176,21 +229,31 @@ IMPORTANT: Return ONLY a valid JSON object with this exact structure (no markdow
     });
   } catch (error) {
     console.error("Opportunities API error:", error);
-    return new Response("Internal server error", { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
 // GET: Fetch opportunities for a project
 export async function GET(req: Request) {
   try {
+    // Auth check
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (authError) return authError;
+
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get("projectId");
 
     if (!projectId) {
-      return new Response("Project ID is required", { status: 400 });
+      return NextResponse.json({ error: "Project ID is required" }, { status: 400 });
     }
 
-    const supabase = await createServiceClient();
+    // Authorization: verify user owns this project
+    const { authorized, error: ownershipError } = await verifyProjectOwnership(projectId, user!.id);
+    if (!authorized) {
+      return NextResponse.json({ error: ownershipError }, { status: 403 });
+    }
+
+    const supabase = await createClient();
 
     const { data: opportunities, error } = await supabase
       .from("opportunities")
@@ -200,35 +263,41 @@ export async function GET(req: Request) {
 
     if (error) {
       console.error("Failed to fetch opportunities:", error);
-      return new Response("Failed to fetch opportunities", { status: 500 });
+      return NextResponse.json({ error: "Failed to fetch opportunities" }, { status: 500 });
     }
 
-    return Response.json(opportunities);
+    return NextResponse.json(opportunities);
   } catch (error) {
     console.error("Opportunities fetch error:", error);
-    return new Response("Internal server error", { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
 // PUT: Create or update an opportunity
 export async function PUT(req: Request) {
   try {
-    const {
-      id,
-      projectId,
-      parentId,
-      title,
-      description,
-      type,
-      status,
-      position,
-    } = await req.json();
+    // Auth check
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (authError) return authError;
 
-    if (!projectId || !title) {
-      return new Response("Project ID and title are required", { status: 400 });
+    // Validate input
+    const body = await req.json();
+    const validated = createUpdateOpportunitySchema.safeParse(body);
+    if (!validated.success) {
+      return NextResponse.json(
+        { error: validated.error.errors[0]?.message || "Invalid input" },
+        { status: 400 }
+      );
+    }
+    const { id, projectId, parentId, title, description, type, status, position } = validated.data;
+
+    // Authorization: verify user owns this project
+    const { authorized, error: ownershipError } = await verifyProjectOwnership(projectId, user!.id);
+    if (!authorized) {
+      return NextResponse.json({ error: ownershipError }, { status: 403 });
     }
 
-    const supabase = await createServiceClient();
+    const supabase = await createClient();
 
     const opportunityData = {
       project_id: projectId,
@@ -251,7 +320,10 @@ export async function PUT(req: Request) {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Database error:", error);
+        return NextResponse.json({ error: "Failed to update opportunity" }, { status: 500 });
+      }
       result = data;
     } else {
       // Create new
@@ -261,59 +333,106 @@ export async function PUT(req: Request) {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Database error:", error);
+        return NextResponse.json({ error: "Failed to create opportunity" }, { status: 500 });
+      }
       result = data;
     }
 
-    return Response.json({
+    return NextResponse.json({
       success: true,
       opportunity: result,
     });
   } catch (error) {
     console.error("Opportunity save error:", error);
-    return new Response("Failed to save opportunity", { status: 500 });
+    return NextResponse.json({ error: "Failed to save opportunity" }, { status: 500 });
   }
 }
 
 // DELETE: Remove an opportunity
 export async function DELETE(req: Request) {
   try {
+    // Auth check
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (authError) return authError;
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
     if (!id) {
-      return new Response("Opportunity ID is required", { status: 400 });
+      return NextResponse.json({ error: "Opportunity ID is required" }, { status: 400 });
     }
 
-    const supabase = await createServiceClient();
+    const supabase = await createClient();
+
+    // Fetch opportunity to get project_id for authorization
+    const { data: existingOpportunity, error: fetchError } = await supabase
+      .from("opportunities")
+      .select("id, project_id")
+      .eq("id", id)
+      .single();
+
+    if (fetchError || !existingOpportunity) {
+      return NextResponse.json({ error: "Opportunity not found" }, { status: 404 });
+    }
+
+    // Authorization: verify user owns this project
+    const { authorized, error: ownershipError } = await verifyProjectOwnership(existingOpportunity.project_id, user!.id);
+    if (!authorized) {
+      return NextResponse.json({ error: ownershipError }, { status: 403 });
+    }
 
     const { error } = await supabase.from("opportunities").delete().eq("id", id);
 
     if (error) {
       console.error("Failed to delete opportunity:", error);
-      return new Response("Failed to delete opportunity", { status: 500 });
+      return NextResponse.json({ error: "Failed to delete opportunity" }, { status: 500 });
     }
 
-    return Response.json({ success: true });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Opportunity delete error:", error);
-    return new Response("Internal server error", { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 
 // PATCH: Add evidence to an opportunity
 export async function PATCH(req: Request) {
   try {
-    const { opportunityId, snapshotId, interviewId, quote, context } =
-      await req.json();
+    // Auth check
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (authError) return authError;
 
-    if (!opportunityId || !quote) {
-      return new Response("Opportunity ID and quote are required", {
-        status: 400,
-      });
+    // Validate input
+    const body = await req.json();
+    const validated = addEvidenceSchema.safeParse(body);
+    if (!validated.success) {
+      return NextResponse.json(
+        { error: validated.error.errors[0]?.message || "Invalid input" },
+        { status: 400 }
+      );
+    }
+    const { opportunityId, snapshotId, interviewId, quote, context } = validated.data;
+
+    const supabase = await createClient();
+
+    // Fetch opportunity to get project_id for authorization
+    const { data: existingOpportunity, error: fetchError } = await supabase
+      .from("opportunities")
+      .select("id, project_id")
+      .eq("id", opportunityId)
+      .single();
+
+    if (fetchError || !existingOpportunity) {
+      return NextResponse.json({ error: "Opportunity not found" }, { status: 404 });
     }
 
-    const supabase = await createServiceClient();
+    // Authorization: verify user owns this project
+    const { authorized, error: ownershipError } = await verifyProjectOwnership(existingOpportunity.project_id, user!.id);
+    if (!authorized) {
+      return NextResponse.json({ error: ownershipError }, { status: 403 });
+    }
 
     const { data: evidence, error } = await supabase
       .from("evidence")
@@ -329,20 +448,24 @@ export async function PATCH(req: Request) {
 
     if (error) {
       console.error("Failed to add evidence:", error);
-      return new Response("Failed to add evidence", { status: 500 });
+      return NextResponse.json({ error: "Failed to add evidence" }, { status: 500 });
     }
 
     // Update evidence count on opportunity
-    await supabase.rpc("increment_evidence_count", {
+    const { error: rpcError } = await supabase.rpc("increment_evidence_count", {
       opportunity_id: opportunityId,
     });
 
-    return Response.json({
+    if (rpcError) {
+      console.error("Failed to update evidence count:", rpcError);
+    }
+
+    return NextResponse.json({
       success: true,
       evidence,
     });
   } catch (error) {
     console.error("Evidence add error:", error);
-    return new Response("Internal server error", { status: 500 });
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

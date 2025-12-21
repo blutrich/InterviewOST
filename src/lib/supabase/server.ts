@@ -1,5 +1,38 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
+
+// Helper to get authenticated user and return 401 if not authenticated
+export async function getAuthenticatedUser() {
+  const supabase = await createClient();
+  const { data: { user }, error } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    return { user: null, error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+
+  return { user, error: null };
+}
+
+// Helper to verify user owns a project
+export async function verifyProjectOwnership(projectId: string, userId: string) {
+  const supabase = await createClient();
+  const { data: project, error } = await supabase
+    .from("projects")
+    .select("id, user_id")
+    .eq("id", projectId)
+    .single();
+
+  if (error || !project) {
+    return { authorized: false, error: "Project not found" };
+  }
+
+  if (project.user_id !== userId) {
+    return { authorized: false, error: "Forbidden" };
+  }
+
+  return { authorized: true, error: null };
+}
 
 export async function createClient() {
   const cookieStore = await cookies();

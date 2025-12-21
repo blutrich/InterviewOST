@@ -1,15 +1,44 @@
 import { NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient, getAuthenticatedUser, verifyProjectOwnership } from "@/lib/supabase/server";
 import { mastra } from "@/mastra";
+import { z } from "zod";
+import {
+  checkRateLimit,
+  getClientIdentifier,
+  rateLimitResponse,
+  RATE_LIMIT_CONFIGS,
+} from "@/lib/rate-limit";
+
+// Validation schemas
+const generateTemplateSchema = z.object({
+  projectId: z.string().uuid("Invalid project ID"),
+});
+
+const updateTemplateSchema = z.object({
+  templateId: z.string().uuid("Invalid template ID"),
+  rubric: z.record(z.any()).optional(),
+  status: z.enum(["draft", "approved"]).optional(),
+  is_active: z.boolean().optional(),
+});
 
 // GET - List templates for a project
 export async function GET(req: Request) {
   try {
+    // Auth check
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (authError) return authError;
+
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get("projectId");
 
     if (!projectId) {
       return NextResponse.json({ error: "Project ID required" }, { status: 400 });
+    }
+
+    // Authorization: verify user owns this project
+    const { authorized, error: ownershipError } = await verifyProjectOwnership(projectId, user!.id);
+    if (!authorized) {
+      return NextResponse.json({ error: ownershipError }, { status: 403 });
     }
 
     const supabase = await createClient();
@@ -20,7 +49,8 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Database error:", error);
+      return NextResponse.json({ error: "Failed to fetch templates" }, { status: 500 });
     }
 
     return NextResponse.json(templates);
@@ -33,6 +63,17 @@ export async function GET(req: Request) {
 // POST - Generate a new template using the Planner agent
 export async function POST(req: Request) {
   try {
+    // Auth check
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (authError) return authError;
+
+    // Rate limiting - use user ID as identifier for authenticated endpoints
+    const identifier = getClientIdentifier(req, user!.id, "templates");
+    const rateLimitResult = checkRateLimit(identifier, RATE_LIMIT_CONFIGS.ai);
+    if (!rateLimitResult.success) {
+      return rateLimitResponse(rateLimitResult);
+    }
+
     // Check env vars first
     if (!process.env.OPENROUTER_API_KEY) {
       console.error("Missing OPENROUTER_API_KEY");
@@ -43,10 +84,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing DATABASE_URL env var" }, { status: 500 });
     }
 
-    const { projectId } = await req.json();
+    // Validate input
+    const body = await req.json();
+    const validated = generateTemplateSchema.safeParse(body);
+    if (!validated.success) {
+      return NextResponse.json(
+        { error: validated.error.errors[0]?.message || "Invalid input" },
+        { status: 400 }
+      );
+    }
+    const { projectId } = validated.data;
 
-    if (!projectId) {
-      return NextResponse.json({ error: "Project ID required" }, { status: 400 });
+    // Authorization: verify user owns this project
+    const { authorized, error: ownershipError } = await verifyProjectOwnership(projectId, user!.id);
+    if (!authorized) {
+      return NextResponse.json({ error: ownershipError }, { status: 403 });
     }
 
     // Get project details for context
@@ -110,9 +162,8 @@ Return ONLY the JSON rubric object, no additional text.`;
       };
     }
 
-    // Save the template to the database
-    const serviceClient = await createServiceClient();
-    const { data: template, error: insertError } = await serviceClient
+    // Save the template to the database (using regular client, not service client)
+    const { data: template, error: insertError } = await supabase
       .from("templates")
       .insert({
         project_id: projectId,
@@ -126,7 +177,8 @@ Return ONLY the JSON rubric object, no additional text.`;
       .single();
 
     if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
+      console.error("Database error:", insertError);
+      return NextResponse.json({ error: "Failed to save template" }, { status: 500 });
     }
 
     return NextResponse.json(template);
@@ -139,13 +191,39 @@ Return ONLY the JSON rubric object, no additional text.`;
 // PATCH - Update a template (approve, activate, edit rubric)
 export async function PATCH(req: Request) {
   try {
-    const { templateId, rubric, status, is_active } = await req.json();
+    // Auth check
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (authError) return authError;
 
-    if (!templateId) {
-      return NextResponse.json({ error: "Template ID required" }, { status: 400 });
+    // Validate input
+    const body = await req.json();
+    const validated = updateTemplateSchema.safeParse(body);
+    if (!validated.success) {
+      return NextResponse.json(
+        { error: validated.error.errors[0]?.message || "Invalid input" },
+        { status: 400 }
+      );
     }
+    const { templateId, rubric, status, is_active } = validated.data;
 
     const supabase = await createClient();
+
+    // Fetch template to verify ownership
+    const { data: existingTemplate, error: fetchError } = await supabase
+      .from("templates")
+      .select("id, project_id")
+      .eq("id", templateId)
+      .single();
+
+    if (fetchError || !existingTemplate) {
+      return NextResponse.json({ error: "Template not found" }, { status: 404 });
+    }
+
+    // Authorization: verify user owns this project
+    const { authorized, error: ownershipError } = await verifyProjectOwnership(existingTemplate.project_id, user!.id);
+    if (!authorized) {
+      return NextResponse.json({ error: ownershipError }, { status: 403 });
+    }
 
     // Build update object
     const updates: Record<string, unknown> = {};
@@ -160,18 +238,14 @@ export async function PATCH(req: Request) {
 
     // If activating this template, deactivate others in the same project
     if (is_active === true) {
-      const { data: template } = await supabase
+      const { error: deactivateError } = await supabase
         .from("templates")
-        .select("project_id")
-        .eq("id", templateId)
-        .single();
+        .update({ is_active: false })
+        .eq("project_id", existingTemplate.project_id)
+        .neq("id", templateId);
 
-      if (template) {
-        await supabase
-          .from("templates")
-          .update({ is_active: false })
-          .eq("project_id", template.project_id)
-          .neq("id", templateId);
+      if (deactivateError) {
+        console.error("Failed to deactivate other templates:", deactivateError);
       }
     }
 
@@ -183,7 +257,8 @@ export async function PATCH(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Database error:", error);
+      return NextResponse.json({ error: "Failed to update template" }, { status: 500 });
     }
 
     return NextResponse.json(updatedTemplate);
@@ -196,6 +271,10 @@ export async function PATCH(req: Request) {
 // DELETE - Remove a template
 export async function DELETE(req: Request) {
   try {
+    // Auth check
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (authError) return authError;
+
     const { searchParams } = new URL(req.url);
     const templateId = searchParams.get("templateId");
 
@@ -204,13 +283,32 @@ export async function DELETE(req: Request) {
     }
 
     const supabase = await createClient();
+
+    // Fetch template to verify ownership
+    const { data: existingTemplate, error: fetchError } = await supabase
+      .from("templates")
+      .select("id, project_id")
+      .eq("id", templateId)
+      .single();
+
+    if (fetchError || !existingTemplate) {
+      return NextResponse.json({ error: "Template not found" }, { status: 404 });
+    }
+
+    // Authorization: verify user owns this project
+    const { authorized, error: ownershipError } = await verifyProjectOwnership(existingTemplate.project_id, user!.id);
+    if (!authorized) {
+      return NextResponse.json({ error: ownershipError }, { status: 403 });
+    }
+
     const { error } = await supabase
       .from("templates")
       .delete()
       .eq("id", templateId);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Database error:", error);
+      return NextResponse.json({ error: "Failed to delete template" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });

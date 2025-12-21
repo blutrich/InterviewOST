@@ -43,12 +43,23 @@ export async function updateSession(request: NextRequest) {
   const isPublicInterviewRoute =
     request.nextUrl.pathname.startsWith("/i/");
   const isCallbackRoute = request.nextUrl.pathname.startsWith("/auth/callback");
-  const isApiRoute = request.nextUrl.pathname.startsWith("/api");
   const isLandingPage = request.nextUrl.pathname === "/";
 
-  // Allow public routes
-  if (isPublicInterviewRoute || isCallbackRoute || isApiRoute || isLandingPage) {
+  // Public API routes (token-based auth, not session-based)
+  const isPublicApiRoute = request.nextUrl.pathname === "/api/chat";
+
+  // Allow public routes (removed isApiRoute - API routes now require auth)
+  if (isPublicInterviewRoute || isCallbackRoute || isPublicApiRoute || isLandingPage) {
     return supabaseResponse;
+  }
+
+  // Handle unauthenticated API requests (return 401, not redirect)
+  const isProtectedApiRoute = request.nextUrl.pathname.startsWith("/api") && !isPublicApiRoute;
+  if (!user && isProtectedApiRoute) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401 }
+    );
   }
 
   // Redirect unauthenticated users to login (except auth routes)

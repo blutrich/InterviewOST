@@ -148,8 +148,10 @@ export default function PublicInterviewPage() {
     if (!participantName.trim() || !interview) return;
 
     const currentInterview = interview;
+    setError(null);
 
-    await supabase
+    // Update participant name and start the interview
+    const { error: updateError } = await supabase
       .from("interviews")
       .update({
         participant_name: participantName,
@@ -158,32 +160,48 @@ export default function PublicInterviewPage() {
       })
       .eq("id", currentInterview.id);
 
+    if (updateError) {
+      console.error("Failed to start interview:", updateError);
+      setError("Failed to start interview. Please try again.");
+      return;
+    }
+
     setNameSubmitted(true);
     setSending(true); // Show loading indicator
 
-    // Start the interview by sending initial message
-    await fetch("/api/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        interviewId: currentInterview.id,
-        token,
-        message: `[SYSTEM] Interview started with participant: ${participantName}`,
-        isStart: true,
-      }),
-    });
+    try {
+      // Start the interview by sending initial message
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          interviewId: currentInterview.id,
+          token,
+          message: `[SYSTEM] Interview started with participant: ${participantName}`,
+          isStart: true,
+        }),
+      });
 
-    // Fetch messages after the API call completes (backup for realtime)
-    const { data: newMessages } = await supabase
-      .from("messages")
-      .select("*")
-      .eq("interview_id", currentInterview.id)
-      .order("created_at", { ascending: true });
+      if (!response.ok) {
+        throw new Error("Failed to start interview chat");
+      }
 
-    if (newMessages) {
-      setMessages(newMessages);
+      // Fetch messages after the API call completes (backup for realtime)
+      const { data: newMessages } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("interview_id", currentInterview.id)
+        .order("created_at", { ascending: true });
+
+      if (newMessages) {
+        setMessages(newMessages);
+      }
+    } catch (err) {
+      console.error("Failed to start interview:", err);
+      setError("Failed to start the conversation. Please refresh and try again.");
+    } finally {
+      setSending(false);
     }
-    setSending(false);
   };
 
   // Handle sending message
@@ -231,6 +249,10 @@ export default function PublicInterviewPage() {
       }
     } catch (err) {
       console.error("Failed to send message:", err);
+      // Remove the optimistic message and show error
+      setMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
+      setError("Failed to send message. Please try again.");
+      setInput(userMessage); // Restore the input so user can retry
     } finally {
       setSending(false);
       inputRef.current?.focus();
@@ -346,6 +368,24 @@ export default function PublicInterviewPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-landing-ivory grain">
+      {/* Error Toast */}
+      {error && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 max-w-md">
+          <svg className="w-5 h-5 text-red-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span className="text-sm">{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="ml-auto text-red-500 hover:text-red-700"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <header className="sticky top-0 z-10 bg-landing-ivory/80 backdrop-blur-xl border-b border-landing-charcoal/5 px-4 py-3">
         <div className="max-w-2xl mx-auto flex items-center justify-between">

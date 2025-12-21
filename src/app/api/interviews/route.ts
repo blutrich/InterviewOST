@@ -1,15 +1,39 @@
 import { NextResponse } from "next/server";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createClient, getAuthenticatedUser, verifyProjectOwnership } from "@/lib/supabase/server";
 import { nanoid } from "nanoid";
+import { z } from "zod";
+
+// Validation schemas
+const createInterviewSchema = z.object({
+  projectId: z.string().uuid("Invalid project ID"),
+  templateId: z.string().uuid("Invalid template ID").optional(),
+  participantName: z.string().max(100, "Name too long").optional(),
+});
+
+const updateInterviewSchema = z.object({
+  interviewId: z.string().uuid("Invalid interview ID"),
+  status: z.enum(["pending", "active", "completed"]).optional(),
+  participantName: z.string().max(100, "Name too long").optional(),
+});
 
 // GET - List interviews for a project
 export async function GET(req: Request) {
   try {
+    // Auth check
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (authError) return authError;
+
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get("projectId");
 
     if (!projectId) {
       return NextResponse.json({ error: "Project ID required" }, { status: 400 });
+    }
+
+    // Authorization: verify user owns this project
+    const { authorized, error: ownershipError } = await verifyProjectOwnership(projectId, user!.id);
+    if (!authorized) {
+      return NextResponse.json({ error: ownershipError }, { status: 403 });
     }
 
     const supabase = await createClient();
@@ -25,7 +49,8 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Database error:", error);
+      return NextResponse.json({ error: "Failed to fetch interviews" }, { status: 500 });
     }
 
     // Add message count and snapshot info
@@ -47,10 +72,25 @@ export async function GET(req: Request) {
 // POST - Create a new interview
 export async function POST(req: Request) {
   try {
-    const { projectId, templateId, participantName } = await req.json();
+    // Auth check
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (authError) return authError;
 
-    if (!projectId) {
-      return NextResponse.json({ error: "Project ID required" }, { status: 400 });
+    // Validate input
+    const body = await req.json();
+    const validated = createInterviewSchema.safeParse(body);
+    if (!validated.success) {
+      return NextResponse.json(
+        { error: validated.error.errors[0]?.message || "Invalid input" },
+        { status: 400 }
+      );
+    }
+    const { projectId, templateId, participantName } = validated.data;
+
+    // Authorization: verify user owns this project
+    const { authorized, error: ownershipError } = await verifyProjectOwnership(projectId, user!.id);
+    if (!authorized) {
+      return NextResponse.json({ error: ownershipError }, { status: 403 });
     }
 
     const supabase = await createClient();
@@ -73,9 +113,8 @@ export async function POST(req: Request) {
     // Generate a unique access token
     const accessToken = nanoid(12);
 
-    // Create the interview
-    const serviceClient = await createServiceClient();
-    const { data: interview, error } = await serviceClient
+    // Create the interview (using regular client, not service client)
+    const { data: interview, error } = await supabase
       .from("interviews")
       .insert({
         project_id: projectId,
@@ -88,7 +127,8 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Database error:", error);
+      return NextResponse.json({ error: "Failed to create interview" }, { status: 500 });
     }
 
     // Generate the interview link
@@ -108,13 +148,39 @@ export async function POST(req: Request) {
 // PATCH - Update interview status
 export async function PATCH(req: Request) {
   try {
-    const { interviewId, status, participantName } = await req.json();
+    // Auth check
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (authError) return authError;
 
-    if (!interviewId) {
-      return NextResponse.json({ error: "Interview ID required" }, { status: 400 });
+    // Validate input
+    const body = await req.json();
+    const validated = updateInterviewSchema.safeParse(body);
+    if (!validated.success) {
+      return NextResponse.json(
+        { error: validated.error.errors[0]?.message || "Invalid input" },
+        { status: 400 }
+      );
     }
+    const { interviewId, status, participantName } = validated.data;
 
     const supabase = await createClient();
+
+    // Fetch interview to verify ownership
+    const { data: existingInterview, error: fetchError } = await supabase
+      .from("interviews")
+      .select("id, project_id")
+      .eq("id", interviewId)
+      .single();
+
+    if (fetchError || !existingInterview) {
+      return NextResponse.json({ error: "Interview not found" }, { status: 404 });
+    }
+
+    // Authorization: verify user owns this project
+    const { authorized, error: ownershipError } = await verifyProjectOwnership(existingInterview.project_id, user!.id);
+    if (!authorized) {
+      return NextResponse.json({ error: ownershipError }, { status: 403 });
+    }
 
     // Build update object
     const updates: Record<string, unknown> = {};
@@ -138,7 +204,8 @@ export async function PATCH(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Database error:", error);
+      return NextResponse.json({ error: "Failed to update interview" }, { status: 500 });
     }
 
     return NextResponse.json(interview);
@@ -151,6 +218,10 @@ export async function PATCH(req: Request) {
 // DELETE - Remove an interview
 export async function DELETE(req: Request) {
   try {
+    // Auth check
+    const { user, error: authError } = await getAuthenticatedUser();
+    if (authError) return authError;
+
     const { searchParams } = new URL(req.url);
     const interviewId = searchParams.get("interviewId");
 
@@ -159,13 +230,32 @@ export async function DELETE(req: Request) {
     }
 
     const supabase = await createClient();
+
+    // Fetch interview to verify ownership
+    const { data: existingInterview, error: fetchError } = await supabase
+      .from("interviews")
+      .select("id, project_id")
+      .eq("id", interviewId)
+      .single();
+
+    if (fetchError || !existingInterview) {
+      return NextResponse.json({ error: "Interview not found" }, { status: 404 });
+    }
+
+    // Authorization: verify user owns this project
+    const { authorized, error: ownershipError } = await verifyProjectOwnership(existingInterview.project_id, user!.id);
+    if (!authorized) {
+      return NextResponse.json({ error: ownershipError }, { status: 403 });
+    }
+
     const { error } = await supabase
       .from("interviews")
       .delete()
       .eq("id", interviewId);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Database error:", error);
+      return NextResponse.json({ error: "Failed to delete interview" }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
