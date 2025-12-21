@@ -10,7 +10,9 @@ export default function NewProjectPage() {
   const router = useRouter();
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiDescription, setAiDescription] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -20,6 +22,44 @@ export default function NewProjectPage() {
     desired_outcome: "",
     model: "anthropic/claude-3.5-sonnet",
   });
+
+  const handleGenerate = async () => {
+    if (!aiDescription.trim()) {
+      setError("Please describe what you want to research");
+      return;
+    }
+
+    setError(null);
+    setGenerating(true);
+
+    try {
+      const response = await fetch("/api/projects/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: aiDescription }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.error || "Failed to generate project");
+        return;
+      }
+
+      // Fill in the form with generated data
+      setFormData((prev) => ({
+        ...prev,
+        name: data.project.name,
+        research_goals: data.project.research_goals,
+        target_audience: data.project.target_audience,
+        desired_outcome: data.project.desired_outcome,
+      }));
+    } catch {
+      setError("Failed to generate project. Please try again.");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +125,68 @@ export default function NewProjectPage() {
         </p>
       </div>
 
+      {/* AI Generation Section */}
+      <div className="bg-gradient-to-br from-landing-forest/5 to-landing-sage/10 rounded-2xl border border-landing-forest/20 p-8 mb-8">
+        <div className="flex items-start gap-4 mb-6">
+          <div className="w-10 h-10 rounded-xl bg-landing-forest/10 flex items-center justify-center flex-shrink-0">
+            <svg className="w-5 h-5 text-landing-forest" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-lg font-medium text-landing-charcoal">
+              AI Project Assistant
+            </h2>
+            <p className="text-sm text-landing-stone mt-1">
+              Describe what you want to research in plain language and let AI fill in the details
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <textarea
+            placeholder="Example: I want to understand why users abandon their shopping cart before completing checkout..."
+            value={aiDescription}
+            onChange={(e) => setAiDescription(e.target.value)}
+            rows={3}
+            disabled={generating}
+            className="w-full px-4 py-3 bg-white border border-landing-forest/20 rounded-xl text-landing-charcoal placeholder:text-landing-stone/50 focus:outline-none focus:border-landing-forest focus:ring-2 focus:ring-landing-forest/10 transition-all duration-300 resize-none disabled:opacity-50"
+          />
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generating || !aiDescription.trim()}
+            className="h-11 px-6 bg-landing-forest text-white text-[12px] uppercase tracking-wider font-medium rounded-full hover:bg-landing-forest-light transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {generating ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Generating...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+                </svg>
+                Generate with AI
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="flex items-center gap-4 mb-8">
+        <div className="flex-1 h-px bg-landing-charcoal/10" />
+        <span className="text-[11px] uppercase tracking-[0.15em] text-landing-stone">
+          or fill in manually
+        </span>
+        <div className="flex-1 h-px bg-landing-charcoal/10" />
+      </div>
+
       <form onSubmit={handleSubmit}>
         <div className="bg-white rounded-2xl border border-landing-charcoal/5 p-8">
           <div className="mb-8">
@@ -92,7 +194,7 @@ export default function NewProjectPage() {
               Project Details
             </p>
             <p className="text-sm text-landing-stone">
-              Tell us about your discovery research project
+              Review and customize your research project
             </p>
           </div>
 

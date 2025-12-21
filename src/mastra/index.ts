@@ -4,6 +4,7 @@ import { plannerAgent } from "./agents/planner";
 import { interviewerAgent } from "./agents/interviewer";
 import { synthesizerAgent } from "./agents/synthesizer";
 import { mapperAgent } from "./agents/mapper";
+import { projectGeneratorAgent } from "./agents/projectGenerator";
 
 // Lazy initialization to avoid issues during build
 let _mastra: Mastra | null = null;
@@ -17,6 +18,7 @@ function getMastra(): Mastra {
         interviewerAgent,
         synthesizerAgent,
         mapperAgent,
+        projectGeneratorAgent,
       },
     });
   }
@@ -29,4 +31,4 @@ export const mastra = {
 };
 
 // Export agents for direct access
-export { plannerAgent, interviewerAgent, synthesizerAgent, mapperAgent };
+export { plannerAgent, interviewerAgent, synthesizerAgent, mapperAgent, projectGeneratorAgent };
