@@ -175,16 +175,30 @@ export function OSTCanvasWrapper({
   };
 
   const handleEdgeDelete = async (edge: Edge) => {
+    // The target node is the child - set its parent_id to null
+    const childId = edge.target;
+    const parentId = edge.source;
+    const child = opportunities.find((o) => o.id === childId);
+
+    if (!child) {
+      toast.error("Could not find the connected item");
+      return;
+    }
+
+    // Validate that we're removing the correct edge
+    if (child.parent_id !== parentId && parentId !== "root") {
+      console.warn("Edge mismatch:", { edgeSource: parentId, childParentId: child.parent_id });
+    }
+
+    // Store previous state for rollback
+    const previousParentId = child.parent_id;
+
+    // Optimistic update - remove only this specific edge by setting child's parent to null
+    setOpportunities((prev) =>
+      prev.map((o) => (o.id === childId ? { ...o, parent_id: null } : o))
+    );
+
     try {
-      // The target node is the child - set its parent_id to null
-      const childId = edge.target;
-      const child = opportunities.find((o) => o.id === childId);
-
-      if (!child) {
-        toast.error("Could not find the connected item");
-        return;
-      }
-
       const res = await fetch("/api/opportunities", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -201,16 +215,20 @@ export function OSTCanvasWrapper({
       });
 
       if (res.ok) {
-        // Update local state instead of full page refresh
-        setOpportunities((prev) =>
-          prev.map((o) => (o.id === childId ? { ...o, parent_id: null } : o))
-        );
         toast.success("Connection removed");
       } else {
+        // Rollback on failure
+        setOpportunities((prev) =>
+          prev.map((o) => (o.id === childId ? { ...o, parent_id: previousParentId } : o))
+        );
         toast.error("Failed to remove connection");
       }
     } catch (error) {
       console.error("Edge delete error:", error);
+      // Rollback on error
+      setOpportunities((prev) =>
+        prev.map((o) => (o.id === childId ? { ...o, parent_id: previousParentId } : o))
+      );
       toast.error("Failed to remove connection");
     }
   };

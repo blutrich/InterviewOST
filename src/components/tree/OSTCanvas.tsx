@@ -103,6 +103,31 @@ export function OSTCanvas({
       .filter((o) => o.type === "outcome" && !o.parent_id)
       .forEach((o) => idsToShow.add(o.id));
 
+    // Include all nodes that are referenced as parent_id by any node
+    // This ensures parent nodes stay visible even after edge deletions
+    // because other children might still reference them
+    let addedMore = true;
+    while (addedMore) {
+      addedMore = false;
+      opportunities.forEach((opp) => {
+        // If this node is visible and has a parent, include the parent
+        if (idsToShow.has(opp.id) && opp.parent_id && !idsToShow.has(opp.parent_id)) {
+          idsToShow.add(opp.parent_id);
+          addedMore = true;
+        }
+        // If this node is the parent of any visible node, include it
+        if (!idsToShow.has(opp.id)) {
+          const hasVisibleChild = opportunities.some(
+            (child) => child.parent_id === opp.id && idsToShow.has(child.id)
+          );
+          if (hasVisibleChild) {
+            idsToShow.add(opp.id);
+            addedMore = true;
+          }
+        }
+      });
+    }
+
     return opportunities.filter((opp) => idsToShow.has(opp.id));
   }, [opportunities, filterByInterviewIds]);
 
