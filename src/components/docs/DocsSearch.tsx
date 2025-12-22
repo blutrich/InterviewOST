@@ -24,7 +24,7 @@ const docsIndex = [
     title: "AI Agents",
     section: "Building Your Research",
     href: "/dashboard/docs/ai-agents",
-    content: "Planner Agent story-based interview rubrics Stories over Opinions Teresa Torres excavate specific past experiences introduction story excavation questions follow-ups probes redirect prompts closing remarks Interviewer Agent real-time customer interviews never accepts vague answers probing story arc context actions outcomes active listening separates facts from opinions Synthesizer Agent Interview Snapshots 15 minutes experience map quote reel facts extraction blind spots Mapper Agent extracts opportunities approved snapshots Opportunity Solution Tree human approval pain points unmet needs workarounds duplicates",
+    content: "Project Generator Agent transforms simple descriptions structured projects research goals target audience desired outcome OST root behavior-focused measurable behavior change Planner Agent story-based interview rubrics Stories over Opinions Teresa Torres excavate specific past experiences introduction story excavation questions follow-ups probes redirect prompts closing remarks Interviewer Agent real-time customer interviews never accepts vague answers probing story arc context actions outcomes active listening separates facts from opinions Synthesizer Agent Interview Snapshots 15 minutes experience map quote reel facts extraction blind spots Mapper Agent extracts opportunities approved snapshots Opportunity Solution Tree human approval pain points unmet needs workarounds duplicates",
   },
   {
     title: "Glossary",

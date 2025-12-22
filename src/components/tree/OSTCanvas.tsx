@@ -199,9 +199,14 @@ export function OSTCanvas({
 
     const edges: Edge[] = [];
 
+    console.log("=== BUILD EDGES DEBUG ===");
+    console.log("Filtered opportunities:", filteredOpportunities.map(o => ({ id: o.id, title: o.title, parent_id: o.parent_id })));
+    console.log("Visible IDs:", [...visibleIds]);
+
     filteredOpportunities.forEach((opp) => {
       if (opp.parent_id && visibleIds.has(opp.parent_id)) {
         // Normal edge to existing parent
+        console.log(`Creating edge: ${opp.parent_id} -> ${opp.id} (${opp.title})`);
         edges.push({
           id: `e-${opp.parent_id}-${opp.id}`,
           source: opp.parent_id,
@@ -215,6 +220,7 @@ export function OSTCanvas({
         });
       } else if (!opp.parent_id && hasVirtualRoot && opp.type !== "outcome") {
         // Connect top-level opportunities to virtual root node
+        console.log(`Creating root edge: root -> ${opp.id} (${opp.title})`);
         edges.push({
           id: `e-root-${opp.id}`,
           source: "root",
@@ -226,9 +232,12 @@ export function OSTCanvas({
             strokeWidth: 2,
           },
         });
+      } else if (opp.parent_id && !visibleIds.has(opp.parent_id)) {
+        console.log(`SKIPPING edge: ${opp.parent_id} -> ${opp.id} (parent not visible)`);
       }
     });
 
+    console.log("Total edges created:", edges.length, edges.map(e => e.id));
     return edges;
   }, [filteredOpportunities, rootOutcome]);
 

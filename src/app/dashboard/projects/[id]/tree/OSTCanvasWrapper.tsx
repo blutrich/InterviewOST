@@ -180,10 +180,18 @@ export function OSTCanvasWrapper({
     const parentId = edge.source;
     const child = opportunities.find((o) => o.id === childId);
 
+    console.log("=== EDGE DELETE DEBUG ===");
+    console.log("Edge being deleted:", edge.id);
+    console.log("Edge source (parent):", parentId);
+    console.log("Edge target (child):", childId);
+    console.log("All opportunities before update:", opportunities.map(o => ({ id: o.id, title: o.title, parent_id: o.parent_id })));
+
     if (!child) {
       toast.error("Could not find the connected item");
       return;
     }
+
+    console.log("Child found:", { id: child.id, title: child.title, parent_id: child.parent_id });
 
     // Validate that we're removing the correct edge
     if (child.parent_id !== parentId && parentId !== "root") {
@@ -194,9 +202,11 @@ export function OSTCanvasWrapper({
     const previousParentId = child.parent_id;
 
     // Optimistic update - remove only this specific edge by setting child's parent to null
-    setOpportunities((prev) =>
-      prev.map((o) => (o.id === childId ? { ...o, parent_id: null } : o))
-    );
+    setOpportunities((prev) => {
+      const updated = prev.map((o) => (o.id === childId ? { ...o, parent_id: null } : o));
+      console.log("All opportunities after update:", updated.map(o => ({ id: o.id, title: o.title, parent_id: o.parent_id })));
+      return updated;
+    });
 
     try {
       const res = await fetch("/api/opportunities", {
