@@ -247,11 +247,30 @@ export function OSTCanvas({
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
+  // Track if we're in the middle of a manual edge deletion
+  const [skipNextEdgeRebuild, setSkipNextEdgeRebuild] = useState(false);
+
   // Update nodes and edges when opportunities or filters change
   useEffect(() => {
+    console.log("=== USE EFFECT TRIGGERED ===");
+    console.log("Skip next edge rebuild:", skipNextEdgeRebuild);
+
     setNodes(buildNodes());
-    setEdges(buildEdges());
-  }, [buildNodes, buildEdges, setNodes, setEdges]);
+
+    // If we just did a manual edge deletion, skip rebuilding edges this cycle
+    // The edges were already updated directly
+    if (skipNextEdgeRebuild) {
+      console.log("Skipping edge rebuild (manual deletion in progress)");
+      setSkipNextEdgeRebuild(false);
+      return;
+    }
+
+    // Build new edges
+    const newEdges = buildEdges();
+    console.log("New edges from buildEdges:", newEdges.map(e => e.id));
+
+    setEdges(newEdges);
+  }, [buildNodes, buildEdges, setNodes, setEdges, skipNextEdgeRebuild]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -271,6 +290,7 @@ export function OSTCanvas({
   // Handle edge click - show confirmation
   const onEdgeClick = useCallback(
     (_: React.MouseEvent, edge: Edge) => {
+      console.log("Edge clicked:", edge.id, "source:", edge.source, "target:", edge.target);
       setSelectedEdge(edge);
     },
     []
@@ -278,10 +298,23 @@ export function OSTCanvas({
 
   const confirmEdgeDelete = useCallback(() => {
     if (selectedEdge) {
+      console.log("Confirming delete of edge:", selectedEdge.id);
+
+      // Set flag to skip the next edge rebuild from useEffect
+      setSkipNextEdgeRebuild(true);
+
+      // Remove the edge visually from React Flow state immediately
+      setEdges((currentEdges) => {
+        const filtered = currentEdges.filter((e) => e.id !== selectedEdge.id);
+        console.log("Edges after manual filter:", filtered.map(e => e.id));
+        return filtered;
+      });
+
+      // Call the parent handler to update the data
       onEdgeDelete?.(selectedEdge);
       setSelectedEdge(null);
     }
-  }, [selectedEdge, onEdgeDelete]);
+  }, [selectedEdge, onEdgeDelete, setEdges]);
 
   return (
     <div className="relative w-full h-full">

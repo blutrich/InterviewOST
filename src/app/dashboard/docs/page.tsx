@@ -51,7 +51,7 @@ export default function DocsPage() {
                 AI Agents
               </h3>
               <p className="text-sm text-gray-500 mt-1">
-                How the 4 AI agents work together.
+                How the 5 AI agents work together.
               </p>
             </div>
           </div>
