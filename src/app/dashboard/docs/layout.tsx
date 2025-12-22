@@ -83,13 +83,34 @@ export default function DocsLayout({
       {/* Header */}
       <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/80 backdrop-blur-xl">
         <div className="flex h-14 items-center justify-between gap-4 px-4">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Hamburger Menu Button - visible on mobile/tablet only */}
+            <button
+              onClick={() => setNavOpen(true)}
+              className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label="Open navigation menu"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+              </svg>
+            </button>
+
             <Link href="/dashboard/docs" className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-landing-forest flex items-center justify-center">
                 <span className="text-white font-serif text-sm font-medium">D</span>
               </div>
               <span className="text-sm font-medium text-gray-900 hidden sm:block">Docs</span>
             </Link>
+
+            {/* Current page indicator */}
+            {current && (
+              <div className="hidden sm:flex items-center gap-2 text-sm text-gray-400">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                </svg>
+                <span className="text-gray-600">{current.page}</span>
+              </div>
+            )}
           </div>
 
           {/* Search bar - desktop */}
@@ -97,18 +118,18 @@ export default function DocsLayout({
             <DocsSearch />
           </div>
 
-          {/* Search button - mobile */}
-          <button
-            onClick={() => setSearchOpen(true)}
-            className="md:hidden flex items-center gap-2 px-3 py-1.5 text-sm text-gray-500 bg-gray-50 rounded-lg border border-gray-200"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-            </svg>
-            <span>Search</span>
-          </button>
-
           <div className="flex items-center gap-3">
+            {/* Search button - mobile */}
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label="Search docs"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+            </button>
+
             <span className="hidden sm:block text-xs text-gray-400 px-1.5 py-0.5 bg-gray-100 rounded">⌘K</span>
             <Link
               href="/dashboard"
@@ -118,30 +139,6 @@ export default function DocsLayout({
             </Link>
           </div>
         </div>
-
-        {/* Navigation breadcrumb */}
-        <button
-          onClick={() => setNavOpen(true)}
-          className="flex w-full items-center justify-between border-t border-gray-100 px-4 py-3 hover:bg-gray-50 transition-colors"
-        >
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-gray-400">Navigation</span>
-            <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-            </svg>
-          </div>
-          {current ? (
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-500">{current.section}</span>
-              <svg className="w-3 h-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-              </svg>
-              <span className="text-gray-900 font-medium">{current.page}</span>
-            </div>
-          ) : (
-            <span className="text-sm text-gray-900 font-medium">Discovery Co-Pilot Docs</span>
-          )}
-        </button>
       </header>
 
       {/* Navigation Drawer */}
@@ -203,22 +200,57 @@ export default function DocsLayout({
         </div>
       )}
 
-      {/* Main Content */}
-      <main className="max-w-3xl mx-auto px-4 py-8">
-        {children}
-      </main>
+      {/* Main Layout with Sidebar */}
+      <div className="flex">
+        {/* Desktop Sidebar - always visible on lg+ */}
+        <aside className="hidden lg:block w-64 flex-shrink-0 border-r border-gray-100 h-[calc(100vh-3.5rem)] sticky top-14 overflow-y-auto">
+          <nav className="p-4 space-y-6">
+            {navigation.map((section) => (
+              <div key={section.title}>
+                <h4 className="flex items-center gap-2 text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+                  {section.title}
+                </h4>
+                <ul className="space-y-0.5">
+                  {section.items.map((item) => (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors",
+                          pathname === item.href
+                            ? "bg-landing-forest/10 text-landing-forest font-medium"
+                            : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                        )}
+                      >
+                        {item.title}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </nav>
+        </aside>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-100 py-6">
-        <div className="max-w-3xl mx-auto px-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
-              Dashboard
-            </Link>
+        {/* Main Content */}
+        <main className="flex-1 min-w-0">
+          <div className="max-w-3xl mx-auto px-4 py-8 lg:px-8">
+            {children}
           </div>
-          <span className="text-xs text-gray-400">Discovery Co-Pilot</span>
-        </div>
-      </footer>
+
+          {/* Footer */}
+          <footer className="border-t border-gray-100 py-6">
+            <div className="max-w-3xl mx-auto px-4 lg:px-8 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Link href="/dashboard" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                  Dashboard
+                </Link>
+              </div>
+              <span className="text-xs text-gray-400">Discovery Co-Pilot</span>
+            </div>
+          </footer>
+        </main>
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useEffect, useMemo } from "react";
+import { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import {
   ReactFlow,
   Background,
@@ -247,21 +247,21 @@ export function OSTCanvas({
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
-  // Track if we're in the middle of a manual edge deletion
-  const [skipNextEdgeRebuild, setSkipNextEdgeRebuild] = useState(false);
+  // Track if we're in the middle of a manual edge deletion (use ref to avoid triggering useEffect)
+  const skipNextEdgeRebuildRef = useRef(false);
 
   // Update nodes and edges when opportunities or filters change
   useEffect(() => {
     console.log("=== USE EFFECT TRIGGERED ===");
-    console.log("Skip next edge rebuild:", skipNextEdgeRebuild);
+    console.log("Skip next edge rebuild:", skipNextEdgeRebuildRef.current);
 
     setNodes(buildNodes());
 
     // If we just did a manual edge deletion, skip rebuilding edges this cycle
     // The edges were already updated directly
-    if (skipNextEdgeRebuild) {
+    if (skipNextEdgeRebuildRef.current) {
       console.log("Skipping edge rebuild (manual deletion in progress)");
-      setSkipNextEdgeRebuild(false);
+      skipNextEdgeRebuildRef.current = false;
       return;
     }
 
@@ -270,7 +270,7 @@ export function OSTCanvas({
     console.log("New edges from buildEdges:", newEdges.map(e => e.id));
 
     setEdges(newEdges);
-  }, [buildNodes, buildEdges, setNodes, setEdges, skipNextEdgeRebuild]);
+  }, [buildNodes, buildEdges, setNodes, setEdges]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -298,15 +298,34 @@ export function OSTCanvas({
 
   const confirmEdgeDelete = useCallback(() => {
     if (selectedEdge) {
-      console.log("Confirming delete of edge:", selectedEdge.id);
+      console.log("=== CONFIRM EDGE DELETE ===");
+      console.log("Selected edge to delete:", {
+        id: selectedEdge.id,
+        source: selectedEdge.source,
+        target: selectedEdge.target
+      });
 
-      // Set flag to skip the next edge rebuild from useEffect
-      setSkipNextEdgeRebuild(true);
+      // Set flag to skip the next edge rebuild from useEffect (use ref to avoid re-triggering effect)
+      skipNextEdgeRebuildRef.current = true;
 
       // Remove the edge visually from React Flow state immediately
       setEdges((currentEdges) => {
+        console.log("Current edges BEFORE filter:", currentEdges.map(e => ({
+          id: e.id,
+          source: e.source,
+          target: e.target
+        })));
+
         const filtered = currentEdges.filter((e) => e.id !== selectedEdge.id);
-        console.log("Edges after manual filter:", filtered.map(e => e.id));
+
+        console.log("Edges AFTER filter:", filtered.map(e => ({
+          id: e.id,
+          source: e.source,
+          target: e.target
+        })));
+
+        console.log(`Removed ${currentEdges.length - filtered.length} edge(s)`);
+
         return filtered;
       });
 
