@@ -114,7 +114,7 @@ export default function DocsPage() {
               <PageLink
                 href="/dashboard/docs/ai-agents"
                 title="Using AI Agents"
-                description="Planner, Interviewer, Synthesizer, and Mapper"
+                description="5 agents: Project Generator, Planner, Interviewer, Synthesizer, Mapper"
               />
               <PageLink
                 href="/dashboard/docs/creating-templates"
@@ -135,6 +135,11 @@ export default function DocsPage() {
                 href="/dashboard/docs/ost"
                 title="Building Your OST"
                 description="Opportunity Solution Tree visualization"
+              />
+              <PageLink
+                href="/dashboard/docs/board"
+                title="Using the PM Board"
+                description="Kanban-style project management"
               />
             </div>
           </div>

@@ -62,7 +62,7 @@ export default function SignupPage() {
             Check your email
           </h1>
           <p className="text-landing-stone mb-8">
-            We've sent a confirmation link to{" "}
+            We&apos;ve sent a confirmation link to{" "}
             <span className="text-landing-charcoal font-medium">{email}</span>.
             Click it to activate your account.
           </p>

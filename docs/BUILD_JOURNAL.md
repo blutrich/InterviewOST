@@ -52,7 +52,7 @@
 | Next.js 15 Setup | ✅ | TypeScript, Tailwind, shadcn/ui |
 | Supabase Schema | ✅ | All 8 tables created |
 | Auth Flow | ✅ | Login, signup, middleware |
-| Mastra Setup | ✅ | 4 agents registered |
+| Mastra Setup | ✅ | 5 agents registered (added Project Generator) |
 | Dashboard Layout | ✅ | Responsive design |
 
 ### Phase 2: Template Generation ✅
@@ -95,7 +95,28 @@
 | EvidencePanel | ✅ | Side panel for quotes |
 | Interview Filtering | ✅ | Filter OST by interview |
 
-### Phase 6: Testing ⏳
+### Phase 6: In-App Documentation ✅
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Docs Layout | ✅ | Hamburger menu + sidebar navigation |
+| Quick Start Guide | ✅ | Step-by-step onboarding |
+| AI Agents Guide | ✅ | All 5 agents documented |
+| Glossary | ✅ | Teresa Torres terminology |
+| Workflow Guides | ✅ | Templates, Interviews, Snapshots, OST |
+| Troubleshooting FAQ | ✅ | Common issues |
+| Search | ✅ | ⌘K keyboard shortcut + full-text search |
+
+### Phase 7: OST Canvas Improvements ✅
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Edge Deletion Fix | ✅ | Single edge deletion works correctly |
+| Stable Positioning | ✅ | Canvas doesn't rearrange on edge delete |
+| ReactFlowProvider | ✅ | Proper context for useReactFlow hook |
+| fitView Once | ✅ | Only fits view on initial load |
+
+### Phase 8: Testing ⏳
 
 | Component | Status | Notes |
 |-----------|--------|-------|
@@ -145,6 +166,36 @@ CREATE TABLE opportunities (
   parent_id UUID REFERENCES opportunities,  -- Tree structure!
   ...
 );
+```
+
+### OST Canvas Stability
+```typescript
+// Use ref instead of state to avoid useEffect re-trigger
+const skipNextEdgeRebuildRef = useRef(false);
+const hasInitialFitRef = useRef(false);
+
+// Fit view only once on initial mount
+useEffect(() => {
+  if (!hasInitialFitRef.current && nodes.length > 0) {
+    fitView({ padding: 0.2 });
+    hasInitialFitRef.current = true;
+  }
+}, [nodes.length, fitView]);
+```
+
+### In-App Documentation Structure
+```
+/dashboard/docs/
+├── layout.tsx      # Hamburger menu + sidebar
+├── page.tsx        # Docs landing page
+├── quick-start/    # Step-by-step guide
+├── ai-agents/      # All 5 agents
+├── glossary/       # Teresa Torres terms
+├── creating-templates/
+├── managing-interviews/
+├── snapshots/
+├── ost/
+└── troubleshooting/
 ```
 
 ---
@@ -291,6 +342,27 @@ Filtering OST by interview requires:
 - Created React Flow OST canvas
 - Implemented evidence linking
 - Added interview filtering
+
+### Session: In-App Documentation
+- Created `/dashboard/docs` with full navigation
+- Hamburger menu for mobile + persistent sidebar for desktop
+- Search with ⌘K keyboard shortcut
+- Documented all 5 AI agents
+- Added workflow guides for Templates, Interviews, Snapshots, OST
+- Troubleshooting FAQ section
+
+### Session: OST Canvas Fixes
+- Fixed edge deletion bug (was deleting all edges)
+- Changed `skipNextEdgeRebuild` from state to ref (avoids useEffect re-trigger)
+- Removed `fitView` prop (was causing rearrangement)
+- Added `useReactFlow` hook with one-time initial fit
+- Wrapped component with `ReactFlowProvider`
+
+### Session: Project Generator Agent
+- Created 5th agent for project creation
+- Transforms simple descriptions into Teresa Torres-aligned projects
+- Generates: name, research_goals, target_audience, desired_outcome
+- Follows outcomes-over-outputs principle
 
 ---
 

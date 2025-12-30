@@ -33,7 +33,7 @@
 | Layer | Technology |
 |-------|------------|
 | Frontend | Next.js 15 + Tailwind + shadcn/ui |
-| AI Framework | **Mastra** (4 specialized agents) |
+| AI Framework | **Mastra** (5 specialized agents) |
 | LLM Provider | OpenRouter (multi-model) |
 | Database | Supabase (PostgreSQL + Realtime) |
 | Tree Visualization | React Flow |
@@ -365,23 +365,29 @@ Outcome (Root)
 
 All agents are defined in `/src/mastra/agents/` and registered in `/src/mastra/index.ts`.
 
-### 1. Planner Agent (`planner.ts`)
+### 1. Project Generator Agent (`projectGenerator.ts`)
+- **Job:** Transform simple descriptions into structured research projects
+- **Input:** User's research idea (e.g., "why people cancel subscriptions")
+- **Output:** JSON with name, research_goals, target_audience, desired_outcome
+- **Key:** Follows Teresa Torres' outcomes-over-outputs principle
+
+### 2. Planner Agent (`planner.ts`)
 - **Job:** Generate interview rubrics
 - **Input:** Project details (goals, audience, outcome)
 - **Output:** JSON rubric with story-based questions
 
-### 2. Interviewer Agent (`interviewer.ts`)
+### 3. Interviewer Agent (`interviewer.ts`)
 - **Job:** Conduct interviews
 - **Input:** Rubric + conversation history + participant message
 - **Output:** Next interviewer response
 - **Special:** Ends with `[INTERVIEW_COMPLETE]` marker
 
-### 3. Synthesizer Agent (`synthesizer.ts`)
+### 4. Synthesizer Agent (`synthesizer.ts`)
 - **Job:** Create Interview Snapshots
 - **Input:** Full transcript
 - **Output:** Structured JSON (experience_map, quote_reel, facts, blind_spots)
 
-### 4. Mapper Agent (`mapper.ts`)
+### 5. Mapper Agent (`mapper.ts`)
 - **Job:** Extract opportunities for OST
 - **Input:** Approved snapshot + existing opportunities
 - **Output:** Suggested opportunities with relationships
@@ -495,12 +501,13 @@ Completed Interview
 | Path | Purpose |
 |------|---------|
 | `/src/app/dashboard/page.tsx` | Projects list |
+| `/src/app/dashboard/docs/` | In-app documentation (hamburger menu, sidebar, search) |
 | `/src/app/dashboard/projects/[id]/page.tsx` | Project detail |
 | `/src/app/dashboard/projects/[id]/templates/page.tsx` | Manage templates |
 | `/src/app/dashboard/projects/[id]/interviews/page.tsx` | Interviews list |
 | `/src/app/dashboard/projects/[id]/interviews/[interviewId]/page.tsx` | Transcript view |
 | `/src/app/dashboard/projects/[id]/interviews/[interviewId]/snapshot/page.tsx` | Snapshot view |
-| `/src/app/dashboard/projects/[id]/tree/page.tsx` | OST visualization |
+| `/src/app/dashboard/projects/[id]/tree/page.tsx` | OST visualization (stable canvas) |
 | `/src/app/i/[token]/page.tsx` | **Public interview page** |
 
 ### API Routes
@@ -515,11 +522,12 @@ Completed Interview
 ### AI Agents
 | Path | Purpose |
 |------|---------|
+| `/src/mastra/agents/projectGenerator.ts` | Generate project structure from descriptions |
 | `/src/mastra/agents/planner.ts` | Generate rubrics |
 | `/src/mastra/agents/interviewer.ts` | Conduct interviews |
 | `/src/mastra/agents/synthesizer.ts` | Create snapshots |
 | `/src/mastra/agents/mapper.ts` | Map opportunities |
-| `/src/mastra/index.ts` | Register all agents |
+| `/src/mastra/index.ts` | Register all 5 agents |
 
 ### Components
 | Path | Purpose |

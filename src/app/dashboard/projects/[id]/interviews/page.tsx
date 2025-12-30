@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import InterviewsClient from "./InterviewsClient";
 
@@ -53,36 +52,17 @@ export default async function InterviewsPage({ params }: Props) {
     }));
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-start justify-between">
+    <div className="space-y-6">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
         <div>
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.15em] text-landing-stone mb-4">
-            <Link href="/dashboard" className="hover:text-landing-charcoal transition-colors">
-              Projects
-            </Link>
-            <span className="text-landing-stone/40">/</span>
-            <Link href={`/dashboard/projects/${id}`} className="hover:text-landing-charcoal transition-colors">
-              {project.name}
-            </Link>
-            <span className="text-landing-stone/40">/</span>
-            <span className="text-landing-charcoal">Interviews</span>
-          </div>
-
-          <h1 className="text-4xl font-light text-landing-charcoal tracking-tight">
+          <h2 className="text-2xl font-light text-landing-charcoal tracking-tight">
             Interviews
-          </h1>
-          <p className="text-landing-stone mt-2">
+          </h2>
+          <p className="text-landing-stone text-sm">
             Manage participant interviews and view transcripts
           </p>
         </div>
-        <Link
-          href={`/dashboard/projects/${id}`}
-          className="h-10 px-5 border border-landing-charcoal/10 text-landing-charcoal text-[12px] uppercase tracking-wider font-medium rounded-full hover:border-landing-charcoal/30 hover:bg-white transition-all duration-300 flex items-center"
-        >
-          Back to Project
-        </Link>
       </div>
 
       {/* Client component handles the interactive parts */}

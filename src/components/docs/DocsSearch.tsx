@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+// useEffect is used in DocsSearchModal below
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -57,6 +58,12 @@ const docsIndex = [
     content: "Opportunity Solution Tree OST visual framework organizing customer opportunities connecting solutions Teresa Torres business outcomes customer opportunities potential solutions desired outcome branches opportunities discovered research Tree tab root research goal opportunities unmet needs pain points workarounds evidence items quotes interviews Adding Opportunities Mapper Agent suggests opportunities approve snapshot accept reject manually create Organizing Tree drag reorganize parent-child relationships broad opportunity specific opportunities Viewing Evidence click opportunity evidence panel verbatim quotes customer context",
   },
   {
+    title: "Using the PM Board",
+    section: "Building Your Research",
+    href: "/dashboard/docs/board",
+    content: "PM Board Kanban Trello drag drop interviews opportunities progress stages pending active completed synthesized cards columns @dnd-kit participant name status badge date quick actions transcript snapshot project management workflow visualization track research",
+  },
+  {
     title: "Troubleshooting",
     section: "Community & Support",
     href: "/dashboard/docs/troubleshooting",
@@ -66,31 +73,30 @@ const docsIndex = [
 
 export function DocsSearch({ onClose }: { onClose?: () => void }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  useEffect(() => {
+  // Compute search results as derived state (no separate state needed)
+  const results = useMemo(() => {
     if (query.length < 2) {
-      setResults([]);
-      return;
+      return [];
     }
 
     const searchTerms = query.toLowerCase().split(" ").filter(t => t.length > 1);
-    
+
     const matches: SearchResult[] = [];
-    
+
     for (const doc of docsIndex) {
       const titleLower = doc.title.toLowerCase();
       const contentLower = doc.content.toLowerCase();
-      
+
       // Check if any search term matches
-      const hasMatch = searchTerms.some(term => 
+      const hasMatch = searchTerms.some(term =>
         titleLower.includes(term) || contentLower.includes(term)
       );
-      
+
       if (hasMatch) {
         // Find the matched text for preview
         let matchedText = "";
@@ -99,13 +105,13 @@ export function DocsSearch({ onClose }: { onClose?: () => void }) {
           if (index !== -1) {
             const start = Math.max(0, index - 30);
             const end = Math.min(doc.content.length, index + term.length + 50);
-            matchedText = (start > 0 ? "..." : "") + 
-              doc.content.slice(start, end) + 
+            matchedText = (start > 0 ? "..." : "") +
+              doc.content.slice(start, end) +
               (end < doc.content.length ? "..." : "");
             break;
           }
         }
-        
+
         matches.push({
           title: doc.title,
           section: doc.section,
@@ -115,10 +121,12 @@ export function DocsSearch({ onClose }: { onClose?: () => void }) {
         });
       }
     }
-    
-    setResults(matches);
-    setSelectedIndex(0);
+
+    return matches;
   }, [query]);
+
+  // Clamp selectedIndex to valid range (derived, not state update)
+  const clampedSelectedIndex = Math.min(selectedIndex, Math.max(0, results.length - 1));
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
@@ -127,9 +135,9 @@ export function DocsSearch({ onClose }: { onClose?: () => void }) {
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSelectedIndex(i => Math.max(i - 1, 0));
-    } else if (e.key === "Enter" && results[selectedIndex]) {
+    } else if (e.key === "Enter" && results[clampedSelectedIndex]) {
       e.preventDefault();
-      router.push(results[selectedIndex].href);
+      router.push(results[clampedSelectedIndex].href);
       setQuery("");
       setIsOpen(false);
       onClose?.();
@@ -143,11 +151,11 @@ export function DocsSearch({ onClose }: { onClose?: () => void }) {
   return (
     <div className="relative">
       <div className="relative">
-        <svg 
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" 
-          fill="none" 
-          viewBox="0 0 24 24" 
-          stroke="currentColor" 
+        <svg
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
           strokeWidth={2}
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -159,6 +167,7 @@ export function DocsSearch({ onClose }: { onClose?: () => void }) {
           onChange={(e) => {
             setQuery(e.target.value);
             setIsOpen(true);
+            setSelectedIndex(0);
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
@@ -169,7 +178,7 @@ export function DocsSearch({ onClose }: { onClose?: () => void }) {
           <button
             onClick={() => {
               setQuery("");
-              setResults([]);
+              setSelectedIndex(0);
               inputRef.current?.focus();
             }}
             className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-gray-200 transition-colors"
@@ -195,7 +204,7 @@ export function DocsSearch({ onClose }: { onClose?: () => void }) {
                   onClose?.();
                 }}
                 className={`block px-4 py-3 border-b border-gray-100 last:border-0 transition-colors ${
-                  index === selectedIndex ? "bg-landing-forest/5" : "hover:bg-gray-50"
+                  index === clampedSelectedIndex ? "bg-landing-forest/5" : "hover:bg-gray-50"
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">

@@ -78,7 +78,7 @@ export default function TroubleshootingPage() {
 
       {/* Navigation */}
       <Link
-        href="/dashboard/docs/ost"
+        href="/dashboard/docs/board"
         className="flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:border-landing-forest/30 hover:shadow-sm transition-all group"
       >
         <div className="flex items-center gap-2">
@@ -86,7 +86,7 @@ export default function TroubleshootingPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
           </svg>
           <span className="font-medium text-gray-900 group-hover:text-landing-forest transition-colors">
-            Building Your OST
+            PM Board
           </span>
         </div>
         <span className="text-sm text-gray-500">Previous</span>

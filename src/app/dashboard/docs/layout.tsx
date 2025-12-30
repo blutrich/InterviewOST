@@ -32,6 +32,7 @@ const navigation: NavSection[] = [
       { title: "Managing Interviews", href: "/dashboard/docs/managing-interviews" },
       { title: "Working with Snapshots", href: "/dashboard/docs/snapshots" },
       { title: "Building Your OST", href: "/dashboard/docs/ost" },
+      { title: "Using the PM Board", href: "/dashboard/docs/board" },
     ],
   },
   {

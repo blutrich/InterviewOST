@@ -25,7 +25,7 @@ export function CTA() {
             </h2>
 
             <p className="text-lg text-white/60 leading-relaxed max-w-lg">
-              Discovery Co-Pilot brings Teresa Torres' Continuous Discovery methodology
+              Discovery Co-Pilot brings Teresa Torres&apos; Continuous Discovery methodology
               to life. Every interview, every insight, every opportunity—structured,
               connected, and ready to drive your next decision.
             </p>
@@ -46,7 +46,7 @@ export function CTA() {
             <div className="relative">
               {/* Large quotation mark */}
               <span className="absolute -top-8 -left-4 text-[120px] font-serif text-white/5 leading-none select-none">
-                "
+                &quot;
               </span>
               <blockquote className="relative z-10 space-y-6">
                 <p className="text-2xl text-white/90 font-light leading-relaxed italic">

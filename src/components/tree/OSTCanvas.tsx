@@ -3,11 +3,13 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import {
   ReactFlow,
+  ReactFlowProvider,
   Background,
   Controls,
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   addEdge,
   Connection,
   Node,
@@ -53,8 +55,8 @@ interface OSTCanvasProps {
   onEdgeDelete?: (edge: Edge) => void;
 }
 
-export function OSTCanvas({
-  projectId,
+function OSTCanvasInner({
+  projectId: _projectId,
   rootOutcome,
   opportunities,
   filterByInterviewIds = [],
@@ -241,14 +243,30 @@ export function OSTCanvas({
     return edges;
   }, [filteredOpportunities, rootOutcome]);
 
-  const initialNodes = useMemo(() => buildNodes(), []);
-  const initialEdges = useMemo(() => buildEdges(), []);
+  const initialNodes = useMemo(() => buildNodes(), [buildNodes]);
+  const initialEdges = useMemo(() => buildEdges(), [buildEdges]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
 
   // Track if we're in the middle of a manual edge deletion (use ref to avoid triggering useEffect)
   const skipNextEdgeRebuildRef = useRef(false);
+  
+  // Track if we've done the initial fit view (only fit once on mount)
+  const hasInitialFitRef = useRef(false);
+  const { fitView } = useReactFlow();
+  
+  // Fit view only on initial mount
+  useEffect(() => {
+    if (!hasInitialFitRef.current && nodes.length > 0) {
+      // Small delay to ensure nodes are rendered
+      const timer = setTimeout(() => {
+        fitView({ padding: 0.2 });
+        hasInitialFitRef.current = true;
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [nodes.length, fitView]);
 
   // Update nodes and edges when opportunities or filters change
   useEffect(() => {
@@ -346,8 +364,6 @@ export function OSTCanvas({
         onNodeDragStop={onNodeDragStop}
         onEdgeClick={onEdgeClick}
         nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
         minZoom={0.1}
         maxZoom={2}
         edgesReconnectable={false}
@@ -473,5 +489,14 @@ export function OSTCanvas({
         onClose={() => setShowEvidence(false)}
       />
     </div>
+  );
+}
+
+// Wrapper component that provides ReactFlow context
+export function OSTCanvas(props: OSTCanvasProps) {
+  return (
+    <ReactFlowProvider>
+      <OSTCanvasInner {...props} />
+    </ReactFlowProvider>
   );
 }

@@ -11,14 +11,15 @@ AI-powered interview platform using Teresa Torres' Continuous Discovery methodol
 | **Next.js 15 Setup** | TypeScript, Tailwind, shadcn/ui |
 | **Supabase Schema** | All tables: projects, templates, interviews, messages, snapshots, opportunities, evidence |
 | **Auth Flow** | Login, signup, callback, middleware |
-| **Mastra Agents** | Planner, Interviewer, Synthesizer, Mapper |
+| **Mastra Agents** | Project Generator, Planner, Interviewer, Synthesizer, Mapper (5 agents) |
 | **Dashboard** | Layout, projects list, project detail page |
 | **Public Interview** | `/i/[token]` - participant interview UI |
 | **Chat API** | `/api/chat` - live interview with AI |
 | **Synthesis API** | `/api/synthesis` - generate Interview Snapshots |
 | **Opportunities API** | `/api/opportunities` - OST management |
 | **Snapshot Components** | ExperienceMap, QuoteReel, FactsPanel, BlindSpotAlert, ValidationUI |
-| **OST Visualization** | React Flow canvas with OpportunityNode, EvidencePanel |
+| **OST Visualization** | React Flow canvas with OpportunityNode, EvidencePanel, stable positioning |
+| **In-App Documentation** | `/dashboard/docs` with hamburger menu, sidebar, search |
 | **Database Migration** | All tables created with RLS policies via Supabase MCP |
 | **Templates API** | `/api/templates` - CRUD + Planner agent generation |
 | **Templates Page** | `/projects/[id]/templates` - generate, preview, edit, approve rubrics |
@@ -26,13 +27,19 @@ AI-powered interview platform using Teresa Torres' Continuous Discovery methodol
 | **Interviews Page** | `/projects/[id]/interviews` - list, create, copy links |
 | **Interview Detail** | `/projects/[id]/interviews/[interviewId]` - transcript view with message bubbles |
 | **Mark Complete** | Button to mark interview as completed from detail page |
+| **PM Board (Kanban)** | `/projects/[id]/board` - Trello-like drag-drop board for interviews & opportunities |
+| **Project Layout** | Persistent project header with tab navigation across all project pages |
+| **Kanban Components** | KanbanBoard, KanbanColumn, KanbanCard with @dnd-kit drag-drop |
+| **Kanban CRUD** | Edit cards (EditCardModal), Add cards (AddCardButton), Delete with confirmation |
+| **Kanban-OST Sync** | Opportunities sync between Kanban board and OST Tree (same statuses) |
+| **Shared Interview Links** | `/join/[shareToken]` - One link spawns multiple interviews |
 
 ### Pending ⏳
 
 | Task | Priority | Description |
 |------|----------|-------------|
 | **End-to-End Test** | HIGH | Test full flow: create project → interview → snapshot → OST |
-| **Fix DATABASE_URL** | MEDIUM | Update `.env.local` with actual PostgreSQL password |
+| **Fix DATABASE_URL** | LOW | Update `.env.local` with actual PostgreSQL password |
 
 ---
 
@@ -72,20 +79,24 @@ npm run dev
 - `/src/app/api/synthesis/route.ts` - Snapshot generation
 - `/src/app/api/opportunities/route.ts` - OST CRUD
 
-### Mastra Agents
+### Mastra Agents (5 total)
+- `/src/mastra/agents/projectGenerator.ts` - Creates structured projects from simple descriptions
 - `/src/mastra/agents/planner.ts` - Generates story-based rubrics
 - `/src/mastra/agents/interviewer.ts` - Conducts interviews (Teresa Torres method)
 - `/src/mastra/agents/synthesizer.ts` - Creates Interview Snapshots
 - `/src/mastra/agents/mapper.ts` - Suggests OST placements
 
 ### Pages
-- `/src/app/(dashboard)/page.tsx` - Projects list
-- `/src/app/(dashboard)/projects/[id]/page.tsx` - Project detail
-- `/src/app/(dashboard)/projects/[id]/templates/page.tsx` - Templates management
-- `/src/app/(dashboard)/projects/[id]/interviews/page.tsx` - Interviews list
-- `/src/app/(dashboard)/projects/[id]/interviews/[interviewId]/page.tsx` - Interview detail/transcript
-- `/src/app/(dashboard)/projects/[id]/interviews/[interviewId]/snapshot/page.tsx` - Interview Snapshot
-- `/src/app/(dashboard)/projects/[id]/tree/page.tsx` - OST visualization
+- `/src/app/dashboard/page.tsx` - Projects list
+- `/src/app/dashboard/docs/` - In-app documentation with sidebar navigation
+- `/src/app/dashboard/projects/[id]/layout.tsx` - Project layout with tabs
+- `/src/app/dashboard/projects/[id]/page.tsx` - Project overview
+- `/src/app/dashboard/projects/[id]/board/page.tsx` - PM Board (Kanban)
+- `/src/app/dashboard/projects/[id]/templates/page.tsx` - Templates management
+- `/src/app/dashboard/projects/[id]/interviews/page.tsx` - Interviews list
+- `/src/app/dashboard/projects/[id]/interviews/[interviewId]/page.tsx` - Interview detail/transcript
+- `/src/app/dashboard/projects/[id]/interviews/[interviewId]/snapshot/page.tsx` - Interview Snapshot
+- `/src/app/dashboard/projects/[id]/tree/page.tsx` - OST visualization (stable canvas)
 - `/src/app/i/[token]/page.tsx` - Public interview page
 
 ### API Routes
@@ -96,6 +107,12 @@ npm run dev
 - `/src/app/api/interviews/route.ts` - Interviews CRUD
 
 ### Components
+- `/src/components/kanban/` - Kanban board components:
+  - `KanbanBoard.tsx` - Main board with DndContext, drag handlers
+  - `KanbanColumn.tsx` - Droppable columns with card count
+  - `KanbanCard.tsx` - Draggable cards with type icons
+  - `EditCardModal.tsx` - Edit/delete card modal with AlertDialog
+  - `AddCardButton.tsx` - Add new interview/opportunity button
 - `/src/components/snapshot/` - Snapshot visualization components
 - `/src/components/tree/` - OST React Flow components
 
@@ -125,6 +142,23 @@ npm run dev
 - "Mark as Completed" button for active interviews
 - Link to generate/view snapshot
 - Duration calculation
+
+### 4. PM Board (`/projects/[id]/board`)
+- Trello-like Kanban board with drag-drop (@dnd-kit)
+- Three view modes: Interviews, Opportunities, All Items
+- Columns: Pending → In Progress → Completed (interviews) or Suggested → Approved → Rejected (opportunities)
+- Click card to open edit modal (EditCardModal)
+- Add new cards from any column (AddCardButton)
+- Delete cards with AlertDialog confirmation
+- Drag cards between columns to update status
+- Real-time status updates to Supabase
+- **Syncs with OST Tree** - Same opportunity statuses used in both views
+
+### 5. Project Layout (all `/projects/[id]/*` pages)
+- Persistent project header showing project name and status
+- Tab navigation: Overview | Board | Interviews | Templates | OST Tree
+- Active tab highlighted with green underline
+- Breadcrumb showing current location
 
 ---
 
@@ -280,6 +314,36 @@ Core flow is correct. Main gaps are experimentation layer and cross-interview in
 
 ---
 
+## Database Status Values
+
+### Interviews
+| Status | Description |
+|--------|-------------|
+| `pending` | Created, not started |
+| `active` | In progress |
+| `completed` | Finished |
+| `abandoned` | Dropped |
+
+### Opportunities (synced between Kanban & OST)
+| Status | Description |
+|--------|-------------|
+| `suggested` | AI-suggested, pending review |
+| `approved` | Human validated |
+| `rejected` | Dismissed |
+| `merged` | Combined with another |
+
+---
+
+## Security Notes
+
+- **RLS Policies**: All tables use `user_id = auth.uid()` checks
+- **Input Validation**: maxLength on all text inputs (200 title, 500 description)
+- **Delete Confirmation**: AlertDialog UI (no native confirm())
+- **No SQL Injection**: Supabase SDK parameterizes all queries
+- **XSS Protection**: React auto-escapes all user content
+
+---
+
 ## Quick Fixes Needed
 
 1. **Fix DATABASE_URL** in `.env.local` - Replace `[YOUR-PASSWORD]` with your actual Supabase database password
@@ -292,5 +356,9 @@ Core flow is correct. Main gaps are experimentation layer and cross-interview in
 - [x] Build `/projects/[id]/templates` page
 - [x] Build `/projects/[id]/interviews` page
 - [x] Build `/projects/[id]/interviews/[id]` page
+- [x] Build PM Board with Kanban CRUD
+- [x] Sync Kanban & OST Tree statuses
+- [x] Security audit & fixes (input validation, AlertDialog)
+- [x] Implement shared interview links (`/join/[shareToken]`)
 - [ ] Test complete flow end-to-end
 - [ ] Get Supabase database password for Mastra storage

@@ -124,13 +124,13 @@ export default function OSTPage() {
         </Link>
 
         <Link
-          href="/dashboard/docs/troubleshooting"
+          href="/dashboard/docs/board"
           className="flex-1 flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:border-landing-forest/30 hover:shadow-sm transition-all group"
         >
           <span className="text-sm text-gray-500">Next</span>
           <div className="flex items-center gap-2">
             <span className="font-medium text-gray-900 group-hover:text-landing-forest transition-colors">
-              Troubleshooting
+              PM Board
             </span>
             <svg className="w-4 h-4 text-gray-400 group-hover:text-landing-forest transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />

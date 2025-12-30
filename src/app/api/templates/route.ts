@@ -19,6 +19,7 @@ const updateTemplateSchema = z.object({
   rubric: z.record(z.any()).optional(),
   status: z.enum(["draft", "approved"]).optional(),
   is_active: z.boolean().optional(),
+  share_token: z.string().min(8).max(20).optional(),
 });
 
 // GET - List templates for a project
@@ -204,7 +205,7 @@ export async function PATCH(req: Request) {
         { status: 400 }
       );
     }
-    const { templateId, rubric, status, is_active } = validated.data;
+    const { templateId, rubric, status, is_active, share_token } = validated.data;
 
     const supabase = await createClient();
 
@@ -235,6 +236,7 @@ export async function PATCH(req: Request) {
       }
     }
     if (is_active !== undefined) updates.is_active = is_active;
+    if (share_token !== undefined) updates.share_token = share_token;
 
     // If activating this template, deactivate others in the same project
     if (is_active === true) {

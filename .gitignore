@@ -39,6 +39,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# Claude journal (auto-generated development logs)
+.claude/journal/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

@@ -60,7 +60,7 @@ export default function LoginPage() {
 
           {/* Quote */}
           <div className="max-w-md">
-            <span className="text-[80px] font-serif text-white/10 leading-none">"</span>
+            <span className="text-[80px] font-serif text-white/10 leading-none">&quot;</span>
             <p className="text-2xl text-white/80 font-light leading-relaxed -mt-8">
               The best product decisions come from understanding real customer behavior, not opinions.
             </p>
@@ -158,7 +158,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-8 text-center text-landing-stone text-sm">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link
               href="/signup"
               className="text-landing-forest hover:text-landing-forest-light font-medium transition-colors"

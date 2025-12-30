@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { nanoid } from "nanoid";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -57,6 +58,7 @@ interface Template {
   is_active: boolean;
   created_at: string;
   approved_at: string | null;
+  share_token: string | null;
 }
 
 interface Props {
@@ -84,6 +86,9 @@ export default function TemplatesClient({
   const [isEditing, setIsEditing] = useState(false);
   const [editedRubric, setEditedRubric] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const generateTemplate = async () => {
     setIsGenerating(true);
@@ -178,6 +183,58 @@ export default function TemplatesClient({
       setIsEditing(false);
     } catch {
       alert("Invalid JSON. Please check your rubric format.");
+    }
+  };
+
+  const generateShareLink = async (template: Template) => {
+    setIsGeneratingLink(true);
+    setLinkCopied(false);
+
+    try {
+      // If template already has a share_token, use it
+      if (template.share_token) {
+        const link = `${window.location.origin}/join/${template.share_token}`;
+        setShareLink(link);
+        await copyToClipboard(link);
+        return;
+      }
+
+      // Generate new share_token
+      const newToken = nanoid(12);
+      const res = await fetch("/api/templates", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: template.id, share_token: newToken }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to generate share link");
+      }
+
+      const updatedTemplate = await res.json();
+      setTemplates(templates.map((t) => (t.id === template.id ? updatedTemplate : t)));
+      if (selectedTemplate?.id === template.id) {
+        setSelectedTemplate(updatedTemplate);
+      }
+
+      const link = `${window.location.origin}/join/${newToken}`;
+      setShareLink(link);
+      await copyToClipboard(link);
+    } catch (error) {
+      console.error("Error generating share link:", error);
+      alert("Failed to generate share link. Please try again.");
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 3000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
     }
   };
 
@@ -463,8 +520,69 @@ export default function TemplatesClient({
                       Set as Active
                     </Button>
                   )}
+                  {selectedTemplate.is_active && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => generateShareLink(selectedTemplate)}
+                      disabled={isGeneratingLink}
+                      className="gap-2"
+                    >
+                      {isGeneratingLink ? (
+                        <>
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          Generating...
+                        </>
+                      ) : linkCopied ? (
+                        <>
+                          <svg className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                          </svg>
+                          Share Link
+                        </>
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
+
+              {/* Share Link Display */}
+              {shareLink && selectedTemplate.is_active && (
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-2">
+                    <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                    </svg>
+                    <span className="font-medium text-green-800">Shareable Interview Link</span>
+                  </div>
+                  <p className="text-sm text-green-700 mb-2">
+                    Anyone with this link can start a new interview. Each person gets their own unique session.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs bg-white px-3 py-2 rounded border border-green-200 text-green-800 overflow-x-auto">
+                      {shareLink}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(shareLink)}
+                      className="shrink-0"
+                    >
+                      {linkCopied ? "Copied!" : "Copy"}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         ) : (
