@@ -124,8 +124,22 @@ Keep the research goals and desired outcome in mind - probe deeper on topics tha
       prompt = `${systemContext}
 
 The interview is just starting with a participant named "${interview.participant_name || "Anonymous"}".
-Generate your opening message following the introduction in the rubric.
-Be warm and welcoming. Explain the purpose briefly and start with your first question.`;
+
+Generate ONLY your opening greeting and ONE simple question. Follow these rules:
+1. Greet them warmly by name
+2. Briefly explain the purpose (1-2 sentences max)
+3. Ask ONE simple opening question (under 15 words)
+
+Example format:
+"Hi [Name]! Thanks for joining. I'm researching [topic] and would love to hear about your experiences.
+
+To start - what's your role and how long have you been doing it?"
+
+DO NOT:
+- Ask multiple questions
+- Ask compound questions with "and" or "from X to Y"
+- Include consent questions (assume consent given)
+- Write more than 3-4 sentences total`;
     } else {
       // Build conversation context
       const conversationHistory = (history || [])
