@@ -145,40 +145,25 @@ export default function PublicInterviewPage() {
   // Handle name submission
   const handleNameSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!participantName.trim() || !interview) return;
+    if (!interview) return;
 
     const currentInterview = interview;
     setError(null);
-
-    // Update participant name and start the interview
-    const { error: updateError } = await supabase
-      .from("interviews")
-      .update({
-        participant_name: participantName,
-        status: "active",
-        started_at: new Date().toISOString(),
-      })
-      .eq("id", currentInterview.id);
-
-    if (updateError) {
-      console.error("Failed to start interview:", updateError);
-      setError("Failed to start interview. Please try again.");
-      return;
-    }
-
     setNameSubmitted(true);
     setSending(true); // Show loading indicator
 
     try {
       // Start the interview by sending initial message
+      // The API will handle status update and participant name (bypasses RLS)
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           interviewId: currentInterview.id,
           token,
-          message: `[SYSTEM] Interview started with participant: ${participantName}`,
+          message: `[SYSTEM] Interview started with participant: ${participantName || "Anonymous"}`,
           isStart: true,
+          participantName: participantName || "Anonymous",
         }),
       });
 
@@ -198,7 +183,8 @@ export default function PublicInterviewPage() {
       }
     } catch (err) {
       console.error("Failed to start interview:", err);
-      setError("Failed to start the conversation. Please refresh and try again.");
+      setError("Failed to start the conversation. Please try again.");
+      setNameSubmitted(false); // Allow retry
     } finally {
       setSending(false);
     }

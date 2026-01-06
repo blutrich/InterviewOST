@@ -10,7 +10,7 @@ import {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { interviewId, token, message, isStart } = body;
+    const { interviewId, token, message, isStart, participantName } = body;
 
     // Rate limiting - use IP + token as identifier
     const identifier = getClientIdentifier(req, token, "chat");
@@ -34,6 +34,32 @@ export async function POST(req: Request) {
     // Verify interviewId matches the token's interview
     if (interview.id !== interviewId) {
       return new Response("Interview ID mismatch", { status: 403 });
+    }
+
+    // If this is the start of an interview, update status to active and set participant name
+    if (isStart && interview.status === "pending") {
+      const updateData: { status: string; started_at: string; participant_name?: string } = {
+        status: "active",
+        started_at: new Date().toISOString(),
+      };
+      if (participantName) {
+        updateData.participant_name = participantName;
+      }
+
+      const { error: updateError } = await supabase
+        .from("interviews")
+        .update(updateData)
+        .eq("id", interview.id);
+
+      if (updateError) {
+        console.error("Failed to activate interview:", updateError);
+        return new Response("Failed to start interview", { status: 500 });
+      }
+      // Update local interview object
+      interview.status = "active";
+      if (participantName) {
+        interview.participant_name = participantName;
+      }
     }
 
     if (interview.status !== "active" && !isStart) {

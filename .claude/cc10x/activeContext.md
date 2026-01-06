@@ -1,68 +1,97 @@
 # Active Context - Discovery Copilot
 
 ## Current Focus
-Security Audit - Kanban Board Implementation
+Production 403 Error Fix + Interviewer Agent Improvements
 
 ## Last Updated
-2025-12-22 - Security Audit
+2026-01-06
 
 ---
 
-## Security Audit: Kanban Board
+## Session Summary (Jan 6, 2026)
 
-### Files Reviewed
-- `/src/app/dashboard/projects/[id]/board/BoardClient.tsx`
-- `/src/components/kanban/KanbanBoard.tsx`
-- `/src/components/kanban/KanbanCard.tsx`
-- `/src/components/kanban/KanbanColumn.tsx`
-- `/src/components/kanban/AddCardButton.tsx`
-- `/src/components/kanban/EditCardModal.tsx`
-- `/src/app/dashboard/projects/[id]/board/page.tsx`
-- RLS policies in migration files
+### Issues Fixed This Session
 
-### Key Findings
+#### 1. Production 403 Forbidden Error on `/api/chat`
+**Root Cause:** RLS (Row Level Security) blocked anonymous participant operations
+- Client-side interview status update (`pending` → `active`) blocked
+- Client-side interview INSERT from `/join/[shareToken]` blocked
 
-#### SECURE (Confidence: 90+)
-1. **RLS Policies Active** - Database has RLS enabled with user_id direct checks
-2. **No SQL Injection** - Using Supabase client SDK with parameterized queries
-3. **No XSS via dangerouslySetInnerHTML** - Not used, React handles escaping
-4. **Server-side authorization** - Layout uses server client with auth session
-5. **Middleware protection** - Dashboard routes require authentication
+**Files Changed:**
+| File | Change |
+|------|--------|
+| `src/app/api/chat/route.ts` | Server-side status update + participant name using service role |
+| `src/app/api/interviews/join/route.ts` | **NEW** - Public API for shared interview creation |
+| `src/app/join/[shareToken]/page.tsx` | Use API instead of direct Supabase insert |
+| `src/app/i/[token]/page.tsx` | Pass `participantName` to API, removed failing client-side update |
+| `src/lib/supabase/middleware.ts` | Added `/api/interviews/join` to public routes |
 
-#### POTENTIAL CONCERNS (Confidence varies)
+#### 2. Interviewer Agent Asking Multiple Questions
+**Issue:** Agent was asking compound/broad questions like "Walk me through from preparation to synthesis"
 
-1. **Missing explicit project ownership check in BoardClient** (Confidence: 85)
-   - Client relies on RLS but doesn't verify project access
-   - RLS does enforce this, but defense-in-depth missing
-
-2. **No input length limits** (Confidence: 82)
-   - Title/subtitle inputs have no max length validation
-   - Could allow excessively long strings
-
-3. **Status value not validated** (Confidence: 80)
-   - User can set any status value via update
-   - Could set arbitrary strings, RLS allows any status
+**File Changed:** `src/mastra/agents/interviewer.ts`
+**Fix:** Added "ONE QUESTION AT A TIME - CRITICAL" rule:
+- Only ONE simple, focused question per response
+- Never compound questions
+- Keep questions under 20 words
+- Probe story arc as SEPARATE follow-up questions
 
 ---
 
-## Previous Session Summary
-All major security fixes applied per previous audit:
-- Authentication bypass fixed
-- Authorization checks added to API routes
-- Service role client misuse fixed
-- Input validation with Zod added to API routes
-- Rate limiting added
+## Recent Changes
+- `src/app/api/chat/route.ts:39-63` - Server-side status activation
+- `src/app/api/interviews/join/route.ts` - NEW file for public interview creation
+- `src/app/join/[shareToken]/page.tsx:62-95` - API-based interview creation
+- `src/app/i/[token]/page.tsx:145-191` - Simplified handleNameSubmit
+- `src/lib/supabase/middleware.ts:48-51` - Added public route
+- `src/mastra/agents/interviewer.ts:16-43` - One question at a time rule
 
----
+## Next Steps
+1. Test interview flow end-to-end on production
+2. Verify shared interview links (`/join/[shareToken]`) work correctly
+3. Monitor for any additional RLS issues
 
 ## Active Decisions
 | Decision | Choice | Why |
 |----------|--------|-----|
-| Kanban board security model | RLS + middleware | Standard pattern for Supabase apps |
-| Client-side operations | Via Supabase client | RLS enforces authorization |
-| Input sanitization | React default escaping | No raw HTML rendering needed |
+| RLS bypass approach | Server-side with service role | Secure - validates token before operations |
+| Interview status update | API-side, not client-side | RLS blocks anon updates |
+| Shared interview creation | New `/api/interviews/join` endpoint | Keeps `/join` page simple, secure |
+| Question style | One simple question at a time | Better participant experience, clearer data |
 
 ## Learnings This Session
-- Kanban board uses proper patterns for React/Supabase
-- RLS policies properly configured for interviews/opportunities
-- No dangerous HTML operations in kanban components
+- **RLS Policy Gap**: Policies allowed SELECT for public but not UPDATE/INSERT for participants
+- **Vercel env vars were fine**: Issue was RLS, not missing environment variables
+- **Service role key**: Correct pattern for operations that bypass RLS intentionally
+- **Compound questions confuse**: Participants respond better to simple, focused questions
+
+## Shared Interview Links Feature
+Working flow:
+1. Template has `share_token`
+2. Share URL: `/join/{shareToken}` - one link for everyone
+3. Each participant clicking it → API creates unique interview
+4. Redirects to `/i/{accessToken}` for the actual interview
+
+---
+
+## Previous Context
+
+### Error Handling Audit (Dec 26, 2025)
+**CRITICAL Issues Found:**
+1. `/api/chat/route.ts:166-170` - AI response save failure only logged
+2. `/api/chat/route.ts:181-184` - Interview completion failure only logged
+3. `/api/templates/route.ts:249-251` - Template deactivation failure only logged
+4. `/api/opportunities/route.ts:459-461` - Evidence count RPC failure only logged
+
+### Security Audit (Dec 22, 2025)
+- RLS policies properly configured
+- No SQL injection (Supabase SDK)
+- No XSS (React escaping)
+- Middleware protection active
+
+---
+
+## Deployments
+- **Latest:** Jan 6, 2026 - `interview-ost.vercel.app`
+- **Build:** Passing
+- **Status:** Live

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { nanoid } from "nanoid";
 
 interface Project {
   id: string;
@@ -59,7 +58,7 @@ export default function JoinInterviewPage() {
     fetchTemplate();
   }, [shareToken, supabase]);
 
-  // Handle joining - create new interview and redirect
+  // Handle joining - create new interview via API and redirect
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!template) return;
@@ -68,31 +67,28 @@ export default function JoinInterviewPage() {
     setError(null);
 
     try {
-      // Generate unique access token for this participant
-      const accessToken = nanoid(12);
+      // Create new interview via API (bypasses RLS)
+      const response = await fetch("/api/interviews/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shareToken,
+          participantName: participantName.trim() || undefined,
+        }),
+      });
 
-      // Create new interview
-      const { data: interview, error: createError } = await supabase
-        .from("interviews")
-        .insert({
-          project_id: template.project_id,
-          template_id: template.id,
-          access_token: accessToken,
-          participant_name: participantName.trim() || null,
-          status: "pending",
-        })
-        .select("id, access_token")
-        .single();
-
-      if (createError || !interview) {
-        throw new Error("Failed to create interview session");
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to create interview session");
       }
 
+      const { accessToken } = await response.json();
+
       // Redirect to the interview page
-      router.push(`/i/${interview.access_token}`);
+      router.push(`/i/${accessToken}`);
     } catch (err) {
       console.error("Failed to join interview:", err);
-      setError("Failed to start your interview. Please try again.");
+      setError(err instanceof Error ? err.message : "Failed to start your interview. Please try again.");
       setJoining(false);
     }
   };
