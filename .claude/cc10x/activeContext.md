@@ -1,97 +1,101 @@
 # Active Context - Discovery Copilot
 
 ## Current Focus
-Production 403 Error Fix + Interviewer Agent Improvements
+Production Readiness Review Complete
 
 ## Last Updated
-2026-01-06
+2026-01-06 (after E2E testing)
 
 ---
 
-## Session Summary (Jan 6, 2026)
+## Production Readiness Review Results
 
-### Issues Fixed This Session
+### Test Summary
 
-#### 1. Production 403 Forbidden Error on `/api/chat`
-**Root Cause:** RLS (Row Level Security) blocked anonymous participant operations
-- Client-side interview status update (`pending` → `active`) blocked
-- Client-side interview INSERT from `/join/[shareToken]` blocked
+| Check | Status | Evidence |
+|-------|--------|----------|
+| Build | PASS | `npm run build` exit 0 |
+| API /api/chat | PASS | Returns 404 for invalid token (not 403) |
+| API /api/interviews/join | PASS | Creates interview, returns accessToken |
+| Protected routes | PASS | Returns 401 without auth |
+| Database | PASS | 5 projects, 7 templates, 9 interviews, 111 messages |
+| Env vars | PASS | All 6 vars set in Production |
+| E2E Flow | PASS | Share link → Join → Chat → Messages saved |
+| Interviewer Agent | PASS | ONE question at a time, cleaner opening |
 
-**Files Changed:**
-| File | Change |
-|------|--------|
-| `src/app/api/chat/route.ts` | Server-side status update + participant name using service role |
-| `src/app/api/interviews/join/route.ts` | **NEW** - Public API for shared interview creation |
-| `src/app/join/[shareToken]/page.tsx` | Use API instead of direct Supabase insert |
-| `src/app/i/[token]/page.tsx` | Pass `participantName` to API, removed failing client-side update |
-| `src/lib/supabase/middleware.ts` | Added `/api/interviews/join` to public routes |
+### Security Review Findings
 
-#### 2. Interviewer Agent Asking Multiple Questions
-**Issue:** Agent was asking compound/broad questions like "Walk me through from preparation to synthesis"
+| Severity | Issue | Status |
+|----------|-------|--------|
+| MEDIUM | No input validation in /api/chat | TODO |
+| MEDIUM | Silent failure on message save | Known (from Dec audit) |
+| MEDIUM | Shared rate limit config for /join | TODO |
+| LOW | In-memory rate limiter resets on deploy | Acceptable for now |
 
-**File Changed:** `src/mastra/agents/interviewer.ts`
-**Fix:** Added "ONE QUESTION AT A TIME - CRITICAL" rule:
-- Only ONE simple, focused question per response
-- Never compound questions
-- Keep questions under 20 words
-- Probe story arc as SEPARATE follow-up questions
+### Missing Features Identified
+
+1. **Edit Project** - No way to edit project name/goals/audience after creation
+2. **Better Anonymous Handling** - Agent says "Hi Anonymous!" instead of skipping name
 
 ---
 
-## Recent Changes
-- `src/app/api/chat/route.ts:39-63` - Server-side status activation
-- `src/app/api/interviews/join/route.ts` - NEW file for public interview creation
-- `src/app/join/[shareToken]/page.tsx:62-95` - API-based interview creation
-- `src/app/i/[token]/page.tsx:145-191` - Simplified handleNameSubmit
-- `src/lib/supabase/middleware.ts:48-51` - Added public route
-- `src/mastra/agents/interviewer.ts:16-43` - One question at a time rule
+## Changes Made This Session
 
-## Next Steps
-1. Test interview flow end-to-end on production
-2. Verify shared interview links (`/join/[shareToken]`) work correctly
-3. Monitor for any additional RLS issues
+### 1. AI Opening Message Improvement
+**File:** `src/app/api/chat/route.ts:121-142`
+
+Before: Long intro + consent question + compound question
+After: Short greeting + brief purpose + ONE simple question (< 15 words)
+
+Example output:
+```
+Hi [Name]! Thanks for joining today. I'm researching [topic] and would love to hear about your experiences.
+
+What's your current role?
+```
+
+### 2. Previous: RLS Fix (earlier in session)
+- Server-side status updates
+- New `/api/interviews/join` endpoint
+- Fixed 403 errors on production
+
+---
+
+## Deployment Status
+- **URL:** https://interview-ost.vercel.app
+- **Latest Commit:** `6374e4c` - "fix: Improve AI opening"
+- **Status:** Live and tested
+
+---
+
+## Next Steps (Prioritized)
+
+### High Priority
+1. Add input validation (Zod) to `/api/chat`
+2. Implement project edit functionality
+3. Add dedicated rate limit for `/api/interviews/join`
+
+### Medium Priority
+4. Better anonymous user handling (skip name in greeting)
+5. Fix silent failure handlers from Dec audit
+6. Add error boundaries to dashboard
+
+### Low Priority
+7. Switch rate limiter to Redis for scale
+
+---
 
 ## Active Decisions
+
 | Decision | Choice | Why |
 |----------|--------|-----|
-| RLS bypass approach | Server-side with service role | Secure - validates token before operations |
-| Interview status update | API-side, not client-side | RLS blocks anon updates |
-| Shared interview creation | New `/api/interviews/join` endpoint | Keeps `/join` page simple, secure |
-| Question style | One simple question at a time | Better participant experience, clearer data |
+| Opening format | Short + ONE question | Better UX, clearer data |
+| Anonymous handling | "Hi Anonymous!" | Works for now, improvement planned |
+| Rate limiting | In-memory (shared config) | Simple, works for current scale |
+| RLS bypass | Service role on server | Secure pattern for public endpoints |
 
 ## Learnings This Session
-- **RLS Policy Gap**: Policies allowed SELECT for public but not UPDATE/INSERT for participants
-- **Vercel env vars were fine**: Issue was RLS, not missing environment variables
-- **Service role key**: Correct pattern for operations that bypass RLS intentionally
-- **Compound questions confuse**: Participants respond better to simple, focused questions
-
-## Shared Interview Links Feature
-Working flow:
-1. Template has `share_token`
-2. Share URL: `/join/{shareToken}` - one link for everyone
-3. Each participant clicking it → API creates unique interview
-4. Redirects to `/i/{accessToken}` for the actual interview
-
----
-
-## Previous Context
-
-### Error Handling Audit (Dec 26, 2025)
-**CRITICAL Issues Found:**
-1. `/api/chat/route.ts:166-170` - AI response save failure only logged
-2. `/api/chat/route.ts:181-184` - Interview completion failure only logged
-3. `/api/templates/route.ts:249-251` - Template deactivation failure only logged
-4. `/api/opportunities/route.ts:459-461` - Evidence count RPC failure only logged
-
-### Security Audit (Dec 22, 2025)
-- RLS policies properly configured
-- No SQL injection (Supabase SDK)
-- No XSS (React escaping)
-- Middleware protection active
-
----
-
-## Deployments
-- **Latest:** Jan 6, 2026 - `interview-ost.vercel.app`
-- **Build:** Passing
-- **Status:** Live
+- E2E testing is critical before production
+- LLM prompts need explicit format examples + "DO NOT" rules
+- Anonymous users need graceful handling
+- Security review should be part of every workflow

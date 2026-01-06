@@ -123,23 +123,28 @@ Keep the research goals and desired outcome in mind - probe deeper on topics tha
     if (isStart) {
       prompt = `${systemContext}
 
-The interview is just starting with a participant named "${interview.participant_name || "Anonymous"}".
+The interview is just starting.${interview.participant_name && interview.participant_name !== "Anonymous" ? ` The participant's name is "${interview.participant_name}".` : " The participant chose not to share their name."}
 
 Generate ONLY your opening greeting and ONE simple question. Follow these rules:
-1. Greet them warmly by name
+1. ${interview.participant_name && interview.participant_name !== "Anonymous" ? "Greet them warmly by name" : "Greet them warmly WITHOUT using any name (just say 'Hi there!' or 'Hello!')"}
 2. Briefly explain the purpose (1-2 sentences max)
 3. Ask ONE simple opening question (under 15 words)
 
-Example format:
-"Hi [Name]! Thanks for joining. I'm researching [topic] and would love to hear about your experiences.
+Example format ${interview.participant_name && interview.participant_name !== "Anonymous" ? "(WITH name)" : "(NO name)"}:
+${interview.participant_name && interview.participant_name !== "Anonymous"
+  ? `"Hi ${interview.participant_name}! Thanks for joining. I'm researching [topic] and would love to hear about your experiences.
 
-To start - what's your role and how long have you been doing it?"
+What's your current role?"`
+  : `"Hi there! Thanks for joining. I'm researching [topic] and would love to hear about your experiences.
+
+What's your current role?"`}
 
 DO NOT:
 - Ask multiple questions
 - Ask compound questions with "and" or "from X to Y"
 - Include consent questions (assume consent given)
-- Write more than 3-4 sentences total`;
+- Write more than 3-4 sentences total
+${!interview.participant_name || interview.participant_name === "Anonymous" ? "- Use any name or say 'Anonymous' - just skip the name entirely" : ""}`;
     } else {
       // Build conversation context
       const conversationHistory = (history || [])
