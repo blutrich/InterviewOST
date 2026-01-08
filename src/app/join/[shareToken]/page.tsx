@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 interface Project {
   id: string;
@@ -22,7 +21,6 @@ export default function JoinInterviewPage() {
   const params = useParams();
   const router = useRouter();
   const shareToken = params.shareToken as string;
-  const supabase = createClient();
 
   const [template, setTemplate] = useState<Template | null>(null);
   const [participantName, setParticipantName] = useState("");
@@ -30,33 +28,36 @@ export default function JoinInterviewPage() {
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch template by share_token
+  // Fetch template by share_token via API (bypasses RLS)
   useEffect(() => {
     async function fetchTemplate() {
-      const { data, error } = await supabase
-        .from("templates")
-        .select("id, name, project_id, share_token, projects(id, name, description)")
-        .eq("share_token", shareToken)
-        .eq("is_active", true)
-        .single();
+      try {
+        const response = await fetch(`/api/interviews/join?shareToken=${encodeURIComponent(shareToken)}`);
 
-      if (error || !data) {
+        if (!response.ok) {
+          setError("This interview link is invalid or has expired.");
+          setLoading(false);
+          return;
+        }
+
+        const data = await response.json();
+
+        // Normalize projects to single object
+        const normalizedData = {
+          ...data,
+          projects: Array.isArray(data.projects) ? data.projects[0] : data.projects,
+        };
+        setTemplate(normalizedData as Template);
+        setLoading(false);
+      } catch (err) {
+        console.error("Failed to fetch template:", err);
         setError("This interview link is invalid or has expired.");
         setLoading(false);
-        return;
       }
-
-      // Normalize projects to single object (Supabase returns array for .single())
-      const normalizedData = {
-        ...data,
-        projects: Array.isArray(data.projects) ? data.projects[0] : data.projects,
-      };
-      setTemplate(normalizedData as Template);
-      setLoading(false);
     }
 
     fetchTemplate();
-  }, [shareToken, supabase]);
+  }, [shareToken]);
 
   // Handle joining - create new interview via API and redirect
   const handleJoin = async (e: React.FormEvent) => {

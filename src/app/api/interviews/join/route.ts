@@ -15,6 +15,53 @@ const joinInterviewSchema = z.object({
   participantName: z.string().max(100, "Name too long").optional(),
 });
 
+// GET - Fetch template info by share token (public endpoint)
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const shareToken = searchParams.get("shareToken");
+
+    if (!shareToken) {
+      return NextResponse.json(
+        { error: "Share token required" },
+        { status: 400 }
+      );
+    }
+
+    // Use service client to bypass RLS
+    const supabase = await createServiceClient();
+
+    // Fetch template by share_token
+    const { data: template, error: templateError } = await supabase
+      .from("templates")
+      .select("id, name, project_id, share_token, projects(id, name, description)")
+      .eq("share_token", shareToken)
+      .eq("is_active", true)
+      .single();
+
+    if (templateError || !template) {
+      return NextResponse.json(
+        { error: "This interview link is invalid or has expired" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      id: template.id,
+      name: template.name,
+      project_id: template.project_id,
+      share_token: template.share_token,
+      projects: template.projects,
+    });
+  } catch (error) {
+    console.error("Get template error:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
 // POST - Create a new interview from share token (public endpoint)
 export async function POST(req: Request) {
   try {
