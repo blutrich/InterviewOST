@@ -42,8 +42,10 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/reset-password");
   const isPublicInterviewRoute =
     request.nextUrl.pathname.startsWith("/i/");
+  const isPublicJoinRoute = request.nextUrl.pathname.startsWith("/join/");
   const isCallbackRoute = request.nextUrl.pathname.startsWith("/auth/callback");
   const isLandingPage = request.nextUrl.pathname === "/";
+  const isPublicDocsRoute = request.nextUrl.pathname.startsWith("/docs");
 
   // Public API routes (token-based auth, not session-based)
   const isPublicApiRoute =
@@ -51,7 +53,7 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname === "/api/interviews/join";
 
   // Allow public routes (removed isApiRoute - API routes now require auth)
-  if (isPublicInterviewRoute || isCallbackRoute || isPublicApiRoute || isLandingPage) {
+  if (isPublicInterviewRoute || isPublicJoinRoute || isCallbackRoute || isPublicApiRoute || isLandingPage || isPublicDocsRoute) {
     return supabaseResponse;
   }
 
