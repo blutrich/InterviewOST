@@ -68,8 +68,57 @@ export default function PublicInterviewPage() {
       }
 
       setInterview(data);
-      setNameSubmitted(!!data.participant_name);
       setParticipantName(data.participant_name || "");
+
+      // If participant name is already set (e.g. from /join page) AND
+      // interview is still pending, we need to auto-start it
+      if (data.participant_name && data.status === "pending") {
+        setNameSubmitted(true);
+        setSending(true);
+        setLoading(false);
+        // Auto-trigger the interview start
+        try {
+          const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              interviewId: data.id,
+              token,
+              message: `[SYSTEM] Interview started with participant: ${data.participant_name}`,
+              isStart: true,
+              participantName: data.participant_name,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to start interview chat");
+          }
+
+          // Fetch messages after the API call
+          const { data: newMessages } = await supabase
+            .from("messages")
+            .select("*")
+            .eq("interview_id", data.id)
+            .order("created_at", { ascending: true });
+
+          if (newMessages) {
+            setMessages(newMessages);
+          }
+        } catch (err) {
+          console.error("Failed to auto-start interview:", err);
+          setError("Failed to start the conversation. Please try again.");
+          setNameSubmitted(false);
+        } finally {
+          setSending(false);
+        }
+        return;
+      }
+
+      // If name is set and interview is already active, just show the chat
+      if (data.participant_name && data.status === "active") {
+        setNameSubmitted(true);
+      }
+
       setLoading(false);
     }
 
