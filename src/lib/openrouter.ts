@@ -8,16 +8,16 @@ export const openrouter = createOpenRouter({
 // Available models for different tasks
 export const models = {
   // Primary model for agents
-  default: "anthropic/claude-3.5-sonnet",
+  default: "anthropic/claude-sonnet-4",
 
   // Fast model for real-time responses
-  fast: "openai/gpt-4o-mini",
+  fast: "anthropic/claude-haiku-latest",
 
   // Budget-friendly option
   budget: "meta-llama/llama-3.1-70b-instruct",
 
   // High-quality reasoning
-  reasoning: "anthropic/claude-3.5-sonnet",
+  reasoning: "anthropic/claude-opus-4",
 } as const;
 
 export type ModelKey = keyof typeof models;
