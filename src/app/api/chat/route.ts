@@ -69,7 +69,6 @@ export async function POST(req: Request) {
     // Get the rubric and project context
     const rubric = interview.templates?.rubric;
     const project = interview.projects;
-    const model = project?.model;
 
     // Build project context for the agent
     const projectContext = project ? `
@@ -180,6 +179,11 @@ Respond naturally to continue the interview.
 
     // Generate response using the interviewer agent
     const response = await interviewer.generate(prompt);
+
+    if (!response || !response.text) {
+      console.error("Agent returned empty response:", JSON.stringify(response));
+      return new Response("Agent returned empty response", { status: 500 });
+    }
 
     // Clean up the response - remove internal notes and thinking
     let assistantMessage = response.text;
