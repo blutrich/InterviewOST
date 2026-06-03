@@ -16,15 +16,16 @@
 // responses via talk()/createTalkMessageStream()."
 export const ANAM_CUSTOMER_CLIENT_LLM_ID = "CUSTOMER_CLIENT_V1";
 
-// Defaults sourced from Anam's public quickstart + voice gallery.
-// All managed by Anam — no extra setup needed.
-const DEFAULT_AVATAR_ID = "30fa96d0-26c4-4e55-94a0-517025942e18"; // "Cara"
+// Default avatar is a custom avatar managed in the project's Anam Lab
+// account. To change it: pick another avatar in lab.anam.ai, copy its UUID,
+// and paste it here. Voice still defaults to "Liv" from Anam's public gallery.
+const DEFAULT_AVATAR_ID = "ee9cc649-dab9-41e5-87fa-1a4048527dcf"; // custom
 const DEFAULT_VOICE_ID = "4bdb224b-0342-4986-9831-69a1f059103d"; // "Liv" — warm female
 
 export interface BuildPersonaConfigOptions {
   /** Display name for the persona. Falls back to "Interviewer". */
   personaName?: string;
-  /** Anam avatar UUID. Falls back to Cara. */
+  /** Anam avatar UUID. Falls back to the project's default avatar. */
   avatarId?: string;
   /** Anam voice UUID. Falls back to Liv. */
   voiceId?: string;
