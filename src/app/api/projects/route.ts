@@ -65,10 +65,11 @@ export async function GET(req: Request) {
 
 const updateProjectSchema = z.object({
   projectId: z.string().uuid("Invalid project ID"),
-  name: z.string().trim().min(1, "Name is required").max(200, "Name too long"),
-});
+  name: z.string().trim().min(1, "Name is required").max(200, "Name too long").optional(),
+  status: z.enum(["draft", "active", "completed"]).optional(),
+}).refine((d) => d.name || d.status, { message: "Nothing to update" });
 
-// PATCH - Rename a project (owner or collaborator)
+// PATCH - Update a project (name and/or status)
 export async function PATCH(req: Request) {
   try {
     const { user, error: authError } = await getAuthenticatedUser();
@@ -82,24 +83,27 @@ export async function PATCH(req: Request) {
         { status: 400 }
       );
     }
-    const { projectId, name } = validated.data;
+    const { projectId, name, status } = validated.data;
 
-    // Authorization: owner or member (RLS-backed)
     const { authorized, error: ownershipError } = await verifyProjectOwnership(projectId, user!.id);
     if (!authorized) {
       return NextResponse.json({ error: ownershipError }, { status: 403 });
     }
 
+    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (name) updates.name = name;
+    if (status) updates.status = status;
+
     const supabase = await createClient();
     const { data: project, error } = await supabase
       .from("projects")
-      .update({ name, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq("id", projectId)
-      .select("id, name")
+      .select("id, name, status")
       .single();
 
     if (error) {
-      console.error("Failed to rename project:", error);
+      console.error("Failed to update project:", error);
       return NextResponse.json({ error: "Failed to update project" }, { status: 500 });
     }
 

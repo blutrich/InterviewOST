@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ProjectTabs } from "./ProjectTabs";
 import { EditableProjectName } from "./EditableProjectName";
 import { ShareDialog } from "./ShareDialog";
+import { ProjectStatusBadge } from "./ProjectStatusBadge";
 
 interface Props {
   children: React.ReactNode;
@@ -29,17 +30,6 @@ export default async function ProjectLayout({ children, params }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case "active":
-        return "bg-landing-forest/10 text-landing-forest";
-      case "completed":
-        return "bg-landing-terracotta/10 text-landing-terracotta";
-      default:
-        return "bg-landing-stone/10 text-landing-stone";
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Project Header */}
@@ -64,9 +54,7 @@ export default async function ProjectLayout({ children, params }: Props) {
             <div>
               <EditableProjectName projectId={id} initialName={project.name} />
             </div>
-            <span className={`text-[10px] uppercase tracking-wider font-medium px-2.5 py-1 rounded-full ${getStatusStyle(project.status)}`}>
-              {project.status}
-            </span>
+            <ProjectStatusBadge projectId={id} initialStatus={project.status} />
           </div>
 
           <ShareDialog projectId={id} currentUserEmail={user?.email ?? ""} />
