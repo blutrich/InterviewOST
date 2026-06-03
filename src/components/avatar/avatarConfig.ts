@@ -60,11 +60,21 @@ export function buildPersonaConfig(
  *   spuriously interrupt the avatar mid-sentence. Intentional speech
  *   from the participant still triggers barge-in normally — Anam does
  *   not expose a "disable barge-in entirely" switch.
+ * - `voiceDetectionOptions.endOfSpeechSensitivity`: 0.5 = balanced —
+ *   responds promptly while still tolerating brief mid-sentence pauses.
+ *   Default (around 0) felt sluggish ("wait until certain"); 1 is too
+ *   eager (cuts off participants).
+ * - `voiceDetectionOptions.silenceBeforeAutoEndTurnSeconds`: 0.8 = how
+ *   long after the participant pauses before treating the turn as
+ *   complete. Default is ~1.5s, which felt slow. Tune up toward 1.2 if
+ *   participants complain about feeling rushed.
  */
 export const SESSION_OPTIONS = {
   skipGreeting: true,
   uninterruptibleGreeting: false,
   voiceDetectionOptions: {
     speechEnhancementLevel: 1,
+    endOfSpeechSensitivity: 0.5,
+    silenceBeforeAutoEndTurnSeconds: 0.8,
   },
 } as const;
