@@ -42,7 +42,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${stkMiso.variable} antialiased`}
+        className={`theme-base44 ${geistSans.variable} ${geistMono.variable} ${inter.variable} ${stkMiso.variable} antialiased`}
       >
         {children}
         <Toaster />
