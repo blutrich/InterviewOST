@@ -188,3 +188,67 @@
     to { opacity: 1; }
   }
 }
+
+/* ============================================================
+   Base44 design system — scoped theme.
+   Add `.theme-base44` to any wrapper to re-point the design
+   tokens to Base44's palette + fonts for that subtree only
+   (light blue→cream gradient, black buttons, orange accent,
+   Inter body, STK Miso display). Source: brand.json.
+   ============================================================ */
+.theme-base44 {
+  /* landing-* palette → Base44 */
+  --landing-ivory: #fdf5f0;
+  --landing-mist: #e8f4f8;
+  --landing-forest: #000000;
+  --landing-forest-light: #1f1f1f;
+  --landing-terracotta: #ff983b;
+  --landing-terracotta-light: #ffbfa1;
+  --landing-charcoal: #0a0a0a;
+  --landing-stone: #666666;
+
+  /* shadcn primitives (Button / Card / Dialog / Input / Dropdown) */
+  --background: #ffffff;
+  --foreground: #0a0a0a;
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+  --popover: #ffffff;
+  --popover-foreground: #0a0a0a;
+  --primary: #000000;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f0f0;
+  --secondary-foreground: #0a0a0a;
+  --muted: #f9f9f9;
+  --muted-foreground: #666666;
+  --accent: #ffe9df;
+  --accent-foreground: #0a0a0a;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: rgba(0, 0, 0, 0.12);
+  --ring: #ff983b;
+
+  /* fonts */
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+
+  /* surface + type */
+  background: linear-gradient(180deg, #e8f4f8 0%, #fdf5f0 100%);
+  background-attachment: fixed;
+  color: var(--foreground);
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+}
+
+/* Headings (and anywhere the app used a serif) → Base44 display font */
+.theme-base44 h1,
+.theme-base44 h2,
+.theme-base44 h3,
+.theme-base44 .font-serif {
+  font-family: var(--font-stk-miso), Georgia, "Times New Roman", serif;
+  letter-spacing: -0.01em;
+}
+
+/* Base44 cards: soft shadow instead of a hard border */
+.theme-base44 .shadow-sm,
+.theme-base44 .shadow,
+.theme-base44 .shadow-lg,
+.theme-base44 .shadow-xl {
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
