@@ -130,11 +130,11 @@ export function buildTurnPrompt(
 
   const messageCount = history?.length ?? 0;
   let wrapUpInstruction = "";
-  if (messageCount >= 28) {
+  if (messageCount >= 16) {
     wrapUpInstruction = `\n\n**WRAP UP NOW** - This is the final exchange. Thank the participant and end the interview with ${COMPLETION_MARKER}.`;
-  } else if (messageCount >= 24) {
+  } else if (messageCount >= 12) {
     wrapUpInstruction =
-      "\n\n**Consider wrapping up soon** - You've had a good conversation. Start looking for a natural ending point.";
+      "\n\n**Consider wrapping up soon** - You've covered the key ground. Start looking for a natural ending point.";
   }
 
   return `${systemContext}
@@ -147,9 +147,10 @@ ${message}
 
 ## Your Task
 Respond naturally to continue the interview.
-- Acknowledge their response
-- Ask follow-up questions if needed
-- Move to the next topic if appropriate
-- Use story-based probing if answers are vague
+- Do NOT repeat, paraphrase, or recap what the participant just said
+- Skip the recap and go straight to your next question
+- At most a brief 3-5 word acknowledgment ("Got it.", "That makes sense.") when it adds warmth - then your question
+- Ask ONE follow-up question; use story-based probing if the answer was vague
+- Keep your whole reply short: 1-2 sentences, ideally under 30 words
 - Stay conversational and empathetic${wrapUpInstruction}`;
 }
