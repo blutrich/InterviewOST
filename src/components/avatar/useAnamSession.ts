@@ -30,9 +30,12 @@ export type SessionStatus =
 export interface UseAnamSessionOptions {
   /** Interview access token (used by the token-mint endpoint). */
   token: string;
-  /** Optional avatar/persona overrides. */
-  personaName?: string;
-  voiceId?: string;
+  /**
+   * Optional override of which Anam Persona to use. Defaults to the
+   * project persona configured in `avatarConfig.ts`. The persona owns
+   * the avatar / voice / system prompt — change them in lab.anam.ai.
+   */
+  personaId?: string;
   /**
    * Called once per finalized user utterance (Anam fires
    * MESSAGE_HISTORY_UPDATED with a new user message). The hook handles
@@ -66,7 +69,7 @@ export interface UseAnamSessionResult {
 const VIDEO_ELEMENT_ID = "anam-avatar-video";
 
 export function useAnamSession(opts: UseAnamSessionOptions): UseAnamSessionResult {
-  const { token, personaName, voiceId, onUserUtterance, onAvatarReady } = opts;
+  const { token, personaId, onUserUtterance, onAvatarReady } = opts;
 
   const [status, setStatus] = useState<SessionStatus>("idle");
   const [userCaption, setUserCaption] = useState("");
@@ -109,7 +112,7 @@ export function useAnamSession(opts: UseAnamSessionOptions): UseAnamSessionResul
     setStatus("connecting");
 
     try {
-      const personaConfig = buildPersonaConfig({ personaName, voiceId });
+      const personaConfig = buildPersonaConfig({ personaId });
       const tokenRes = await fetch("/api/anam-session-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -182,7 +185,7 @@ export function useAnamSession(opts: UseAnamSessionOptions): UseAnamSessionResul
       setClient(null);
       startedRef.current = false;
     }
-  }, [token, personaName, voiceId]);
+  }, [token, personaId]);
 
   // Teardown on unmount.
   useEffect(() => {
