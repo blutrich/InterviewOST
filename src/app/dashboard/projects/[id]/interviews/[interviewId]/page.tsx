@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { EditableInterviewName } from "./EditableInterviewName";
 
 // Force dynamic rendering to ensure fresh data
 export const dynamic = "force-dynamic";
@@ -120,9 +121,8 @@ export default async function InterviewDetailPage({ params }: Props) {
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-4 mb-2">
-              <h1 className="text-4xl font-light text-landing-charcoal tracking-tight">
-                {interview.participant_name || "Anonymous Participant"}
-              </h1>
+              <EditableInterviewName interviewId={interview.id} initialName={interview.participant_name} />
+
               <span className={`text-[10px] uppercase tracking-wider font-medium px-3 py-1.5 rounded-full ${getStatusStyle(interview.status)}`}>
                 {interview.status}
               </span>
