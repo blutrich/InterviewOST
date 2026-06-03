@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ProjectTabs } from "./ProjectTabs";
 import { EditableProjectName } from "./EditableProjectName";
+import { ShareDialog } from "./ShareDialog";
 
 interface Props {
   children: React.ReactNode;
@@ -23,6 +24,10 @@ export default async function ProjectLayout({ children, params }: Props) {
   if (error || !project) {
     notFound();
   }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -63,6 +68,8 @@ export default async function ProjectLayout({ children, params }: Props) {
               {project.status}
             </span>
           </div>
+
+          <ShareDialog projectId={id} currentUserEmail={user?.email ?? ""} />
         </div>
 
         {/* Tab Navigation */}
