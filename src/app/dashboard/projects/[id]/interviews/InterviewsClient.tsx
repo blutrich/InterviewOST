@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Pencil, Check, X } from "lucide-react";
 
 interface Interview {
   id: string;
@@ -36,6 +37,9 @@ export default function InterviewsClient({
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   const createInterview = async () => {
     setIsCreating(true);
@@ -94,6 +98,30 @@ export default function InterviewsClient({
     } catch (error) {
       console.error("Error updating interview:", error);
       alert("Failed to update interview. Please try again.");
+    }
+  };
+
+  const saveInterviewName = async (interviewId: string) => {
+    const name = nameDraft.trim();
+    if (!name) return;
+    setSavingName(true);
+    try {
+      const res = await fetch("/api/interviews", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ interviewId, participantName: name }),
+      });
+      if (!res.ok) throw new Error("Failed to rename interview");
+      const updated = await res.json();
+      setInterviews(
+        interviews.map((i) => (i.id === interviewId ? { ...i, ...updated } : i))
+      );
+      setEditingNameId(null);
+    } catch (error) {
+      console.error("Error renaming interview:", error);
+      alert("Failed to rename interview. Please try again.");
+    } finally {
+      setSavingName(false);
     }
   };
 
@@ -242,9 +270,54 @@ export default function InterviewsClient({
                 </span>
                 <div>
                   <div className="flex items-center gap-3 mb-1">
-                    <p className="font-medium text-landing-charcoal">
-                      {interview.participant_name || "Anonymous Participant"}
-                    </p>
+                    {editingNameId === interview.id ? (
+                      <span className="flex items-center gap-1.5">
+                        <input
+                          autoFocus
+                          value={nameDraft}
+                          onChange={(e) => setNameDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveInterviewName(interview.id);
+                            else if (e.key === "Escape") setEditingNameId(null);
+                          }}
+                          maxLength={100}
+                          disabled={savingName}
+                          className="font-medium text-landing-charcoal bg-transparent border-b border-landing-forest/40 focus:border-landing-forest outline-none min-w-[12rem]"
+                        />
+                        <button
+                          onClick={() => saveInterviewName(interview.id)}
+                          disabled={savingName}
+                          aria-label="Save name"
+                          className="p-1 rounded text-landing-forest hover:bg-landing-forest/10 disabled:opacity-50"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setEditingNameId(null)}
+                          disabled={savingName}
+                          aria-label="Cancel"
+                          className="p-1 rounded text-landing-stone hover:bg-landing-stone/10 disabled:opacity-50"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    ) : (
+                      <span className="group/name flex items-center gap-1.5">
+                        <p className="font-medium text-landing-charcoal">
+                          {interview.participant_name || "Anonymous Participant"}
+                        </p>
+                        <button
+                          onClick={() => {
+                            setEditingNameId(interview.id);
+                            setNameDraft(interview.participant_name || "");
+                          }}
+                          aria-label="Edit name"
+                          className="p-1 rounded text-landing-stone opacity-0 group-hover/name:opacity-100 hover:bg-landing-stone/10 transition-all"
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </button>
+                      </span>
+                    )}
                     <span className={`text-[10px] uppercase tracking-wider font-medium px-2.5 py-1 rounded-full ${getStatusStyle(interview.status)}`}>
                       {interview.status}
                     </span>
