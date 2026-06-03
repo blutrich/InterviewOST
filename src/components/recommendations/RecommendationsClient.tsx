@@ -6,6 +6,27 @@ import { Button } from "@/components/ui/button";
 import { ThemeSection } from "./ThemeSection";
 import { Recommendation, Theme } from "./types";
 
+interface ApiErrorBody {
+  error?: string;
+  message?: string;
+  db?: { code?: string; message?: string; details?: string; hint?: string };
+  raw_preview?: string;
+}
+
+function formatErrorBody(body: ApiErrorBody | null, status: number): string {
+  if (!body) return `Request failed (${status})`;
+  const parts: string[] = [];
+  if (body.error) parts.push(body.error);
+  if (body.db?.code || body.db?.message) {
+    parts.push(`[db ${body.db.code ?? "?"}] ${body.db.message ?? ""}`.trim());
+    if (body.db.hint) parts.push(`hint: ${body.db.hint}`);
+    if (body.db.details) parts.push(`details: ${body.db.details}`);
+  } else if (body.message && body.message !== body.error) {
+    parts.push(body.message);
+  }
+  return parts.length > 0 ? parts.join(" — ") : `Request failed (${status})`;
+}
+
 interface Props {
   projectId: string;
   themes: Theme[];
@@ -59,8 +80,14 @@ export default function RecommendationsClient({
         body: JSON.stringify({ projectId, opportunityId: themeId }),
       });
       if (!res.ok) {
-        const { error } = await res.json().catch(() => ({ error: "Failed" }));
-        throw new Error(error || "Failed to generate recommendations");
+        // The route now returns a structured error body. Surface what's there
+        // so the network tab + UI both show enough to diagnose.
+        const body = await res.json().catch(() => null);
+        // Log the full body for browser-console debugging
+        // eslint-disable-next-line no-console
+        console.error("[recommendations] POST failed", { status: res.status, body });
+        const message = formatErrorBody(body, res.status);
+        throw new Error(message);
       }
       const { recommendations: fresh } = (await res.json()) as { recommendations: Recommendation[] };
 
