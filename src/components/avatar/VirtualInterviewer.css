@@ -175,6 +175,97 @@
 }
 .vi-start:active { transform: translateY(0); }
 
+/* ----- intro screen (idle status) ----- */
+.vi-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 8px 12px;
+  max-width: 360px;
+  text-align: center;
+}
+
+.vi-intro-heading {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--vi-ink);
+  margin: 0 0 4px;
+}
+
+.vi-intro-body {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--vi-ink-soft);
+  margin: 0 0 8px;
+}
+
+.vi-intro-cta {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.01em;
+  color: #fff;
+  background: var(--vi-ink);
+  padding: 12px 22px 12px 26px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 12px 24px -16px rgba(44, 42, 38, 0.65);
+  transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+.vi-intro-cta:hover {
+  transform: translateY(-1px);
+  background: #1f1d1a;
+  box-shadow: 0 14px 28px -16px rgba(44, 42, 38, 0.75);
+}
+.vi-intro-cta:active { transform: translateY(0); }
+.vi-intro-cta svg {
+  transition: transform 180ms ease;
+}
+.vi-intro-cta:hover svg { transform: translateX(2px); }
+
+.vi-intro-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.vi-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid rgba(48, 38, 24, 0.08);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  color: var(--vi-ink-soft);
+  box-shadow: 0 1px 2px rgba(48, 38, 24, 0.04);
+}
+.vi-chip svg {
+  color: var(--vi-ink-faint);
+  flex-shrink: 0;
+}
+
+.vi-intro-fineprint {
+  font-size: 12px;
+  color: var(--vi-ink-faint);
+  margin: 6px 0 0;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
 /* ----- captions ----- */
 .vi-captions {
   display: flex;

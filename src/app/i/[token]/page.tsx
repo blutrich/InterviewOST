@@ -359,7 +359,7 @@ export default function PublicInterviewPage() {
         token={token}
         participantName={participantName || null}
         openingMessage={opening}
-        personaName="Interviewer"
+        personaName="Ava"
         onComplete={() => setIsCompleted(true)}
       />
     </div>
