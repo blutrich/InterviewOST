@@ -569,3 +569,70 @@ Every step involves:
 - Human validates/approves
 - Nothing is auto-committed
 
+---
+
+## Voice/Avatar Interviews (Anam integration)
+
+Public interviews at `/i/{token}` are conducted by a photoreal AI avatar
+(powered by [Anam](https://anam.ai)) rather than a text chat. The brain is
+unchanged — the avatar is purely an I/O layer.
+
+### Architecture
+
+- **Anam owns:** camera, voice, lip-sync, microphone, speech-to-text.
+- **InterviewOST owns:** the conversation. The Mastra `interviewerAgent`,
+  rubric, project context, message persistence, and `[INTERVIEW_COMPLETE]`
+  logic all live in `/api/chat` as before.
+- **Mode:** Anam runs in **client-driven LLM mode** (`llmId =
+  "CUSTOMER_CLIENT_V1"`). Anam does NOT call an LLM. Our client listens for
+  the user's transcribed speech, POSTs it to `/api/chat`, and pushes the
+  response back to the avatar via `anamClient.talk(text)`.
+
+### Turn loop
+
+```
+[user speaks] → Anam STT → MESSAGE_HISTORY_UPDATED (role=user)
+              → POST /api/chat (existing endpoint, unchanged)
+              → interviewerAgent.generate() runs as before
+              → response text returned
+              → anamClient.talk(response) → avatar speaks with lip-sync
+              → check interviews.status; if "completed", end session
+```
+
+The very first turn (the opening) is generated during the name-submission
+step and surfaced to the avatar as the `openingMessage` prop, so we don't
+double-generate the opening.
+
+### Where the avatar lives in code
+
+| File | Role |
+|------|------|
+| `src/app/api/anam-session-token/route.ts` | Mints short-lived (~1h) Anam session JWTs. Reads `ANAM_API_KEY` (server-only). |
+| `src/components/avatar/VirtualInterviewer.tsx` | The component. Captions, mic indicator, typing tray, lifecycle. |
+| `src/components/avatar/avatarConfig.ts` | Builds the persona config (avatarId, voiceId, llmId). |
+| `src/app/i/[token]/page.tsx` | Mounts the avatar after the name step. |
+
+### Env
+
+Add `ANAM_API_KEY` to `.env.local` (server-only). The Anam key never reaches
+the browser — only the short-lived `sessionToken` JWT does.
+
+### Switching avatar / voice
+
+`avatarConfig.ts` ships with Anam's default Cara avatar and Liv voice. To
+change: pick an avatar/voice from [lab.anam.ai](https://lab.anam.ai) or the
+public gallery, then update the defaults in `avatarConfig.ts` or pass
+`voiceId` / `personaName` props from the page.
+
+To use an **ElevenLabs voice**: register it once via Anam Lab (Voices → Add
+ElevenLabs voice → paste your ElevenLabs voice id + ElevenLabs API key),
+copy the resulting Anam `voiceId`, and use that.
+
+### Streaming (Phase 2 — not yet implemented)
+
+The current implementation waits for the full `/api/chat` response, then
+speaks it (typical 1-3s latency per turn). The follow-up PR converts
+`/api/chat` to a streaming Response and uses `anamClient.createTalkMessageStream()`
+so the avatar starts speaking the first sentence before the full reply is
+generated.
+
