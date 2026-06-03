@@ -123,14 +123,10 @@ export default function VirtualInterviewer({
 
       setStatus("speaking");
       setPersonaCaption("");
-      // Mute the user's mic while the avatar is speaking so a hot speaker
-      // can't echo back into the mic and get transcribed as user speech.
-      // Anam's VAD also handles this, but the explicit mute is cheap insurance.
-      try {
-        client.muteInputAudio();
-      } catch {
-        // device might not be ready yet; ignore
-      }
+      // NOTE: do NOT mute the mic here. Barge-in (the user interrupting the
+      // avatar) depends on Anam's VAD listening during avatar speech. Muting
+      // would break that. Anam's echo cancellation is generally sufficient;
+      // hot-speaker echo is an environment problem, not a default-on cost.
 
       try {
         while (true) {
@@ -149,11 +145,6 @@ export default function VirtualInterviewer({
       } finally {
         try {
           reader.cancel();
-        } catch {
-          // ignore
-        }
-        try {
-          client.unmuteInputAudio();
         } catch {
           // ignore
         }
@@ -205,20 +196,9 @@ export default function VirtualInterviewer({
     setPersonaCaption(trimmed);
     setStatus("speaking");
     try {
-      client.muteInputAudio();
-    } catch {
-      // ignore
-    }
-    try {
       await client.talk(trimmed);
     } catch (err) {
       console.error("Anam talk() failed", err);
-    } finally {
-      try {
-        client.unmuteInputAudio();
-      } catch {
-        // ignore
-      }
     }
   }, []);
 

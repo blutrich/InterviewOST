@@ -216,6 +216,9 @@ Respond naturally to continue the interview.
       return { cleaned: s, complete };
     };
 
+    const stripCompletionMarker = (s: string) =>
+      s.replace(/\s*\[INTERVIEW_COMPLETE\]\s*/g, "");
+
     const encoder = new TextEncoder();
     const responseStream = new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -228,56 +231,61 @@ Respond naturally to continue the interview.
             fullText += value;
             tail += value;
             if (tail.length > TAIL_SIZE) {
-              const emit = tail.slice(0, tail.length - TAIL_SIZE);
+              // Defensive: strip the marker from the emit path too. The tail
+              // buffer alone only guarantees the marker can't leak when it
+              // appears at the END of the response (the agent's documented
+              // behavior). If it ever appears mid-response, this catches it.
+              const emit = stripCompletionMarker(tail.slice(0, tail.length - TAIL_SIZE));
               tail = tail.slice(-TAIL_SIZE);
-              controller.enqueue(encoder.encode(emit));
+              if (emit) controller.enqueue(encoder.encode(emit));
             }
           }
 
-          // Flush the tail — but strip the completion marker first so the
-          // avatar never speaks it. Internal-note patterns are left alone
-          // in the wire stream (they very rarely appear; the agent prompt
-          // forbids them) — they're still stripped from the saved copy.
-          const tailStripped = tail.replace(/\s*\[INTERVIEW_COMPLETE\]\s*/g, "").trimEnd();
-          if (tailStripped) controller.enqueue(encoder.encode(tailStripped));
+          // Run the post-flight Supabase writes BEFORE closing the stream.
+          // The client's reader sees `done` only after close(); doing the
+          // writes first guarantees that when the client polls interviews.status
+          // it sees the final "completed" value (no client-poll race).
+          // Cost: ~50-200ms of extra tail latency, invisible to the user
+          // because the avatar is already speaking the body of the reply.
+          let cleaned = "";
+          let complete = false;
+          if (fullText.trim()) {
+            const out = cleanForStorage(fullText);
+            cleaned = out.cleaned;
+            complete = out.complete;
+
+            const { error: assistantMsgError } = await supabase.from("messages").insert({
+              interview_id: interviewId,
+              role: "assistant",
+              content: cleaned,
+            });
+            if (assistantMsgError) {
+              console.error("Failed to save assistant message:", assistantMsgError);
+            }
+
+            if (complete) {
+              const { error: completeError } = await supabase
+                .from("interviews")
+                .update({
+                  status: "completed",
+                  completed_at: new Date().toISOString(),
+                })
+                .eq("id", interviewId);
+              if (completeError) {
+                console.error("Failed to mark interview complete:", completeError);
+              }
+            }
+          } else {
+            console.error("Agent returned empty stream");
+          }
+
+          // Final flush of the held-back tail (marker stripped).
+          const tailFlush = stripCompletionMarker(tail).trimEnd();
+          if (tailFlush) controller.enqueue(encoder.encode(tailFlush));
           controller.close();
         } catch (err) {
           console.error("Stream pump error:", err);
           controller.error(err);
-          return;
-        }
-
-        // ---- Post-flight: persist + status update (don't block the response) ----
-        try {
-          if (!fullText.trim()) {
-            console.error("Agent returned empty stream");
-            return;
-          }
-          const { cleaned, complete } = cleanForStorage(fullText);
-
-          const { error: assistantMsgError } = await supabase.from("messages").insert({
-            interview_id: interviewId,
-            role: "assistant",
-            content: cleaned,
-          });
-          if (assistantMsgError) {
-            console.error("Failed to save assistant message:", assistantMsgError);
-          }
-
-          if (complete) {
-            const { error: completeError } = await supabase
-              .from("interviews")
-              .update({
-                status: "completed",
-                completed_at: new Date().toISOString(),
-              })
-              .eq("id", interviewId);
-            if (completeError) {
-              console.error("Failed to mark interview complete:", completeError);
-            }
-          }
-        } catch (err) {
-          console.error("Post-stream persistence error:", err);
         }
       },
     });
