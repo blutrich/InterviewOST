@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Inter } from "next/font/google";
+import localFont from "next/font/local";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -11,6 +12,20 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// Base44 design system fonts (referenced inside the `.theme-base44` scope)
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
+
+const stkMiso = localFont({
+  variable: "--font-stk-miso",
+  src: [
+    { path: "./fonts/STKMiso-Light.ttf", weight: "300", style: "normal" },
+    { path: "./fonts/STKMiso-Regular.ttf", weight: "400", style: "normal" },
+  ],
 });
 
 export const metadata: Metadata = {
@@ -27,7 +42,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${stkMiso.variable} antialiased`}
       >
         {children}
         <Toaster />

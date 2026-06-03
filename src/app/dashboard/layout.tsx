@@ -44,7 +44,7 @@ export default async function DashboardLayout({
     .toUpperCase() || user.email?.[0].toUpperCase() || "U";
 
   return (
-    <div className="min-h-screen bg-landing-ivory grain">
+    <div className="theme-base44 min-h-screen grain">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-landing-charcoal/5 bg-landing-ivory/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-6 lg:px-8">
