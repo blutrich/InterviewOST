@@ -177,66 +177,118 @@ Respond naturally to continue the interview.
 - Stay conversational and empathetic${wrapUpInstruction}`;
     }
 
-    // Generate response using the interviewer agent
-    const response = await interviewer.generate(prompt);
+    // ---- Streaming response ----
+    // The avatar starts speaking as the first tokens arrive, eliminating the
+    // dead pause between turns. We stream the agent's textStream straight to
+    // the client, while accumulating a server-side copy for the post-flight
+    // work: regex-cleaning, [INTERVIEW_COMPLETE] detection, Supabase write,
+    // and interview status update.
+    //
+    // Critical: the `[INTERVIEW_COMPLETE]` marker (19 chars) must never
+    // appear in the bytes the client receives — otherwise the avatar would
+    // speak the literal "[INTERVIEW_COMPLETE]". We hold a tail buffer of
+    // the last 32 chars before emitting, so even if the marker is split
+    // across chunks we can strip it before it reaches the wire.
+    const streamResult = await interviewer.stream(prompt);
+    // Mastra returns its textStream typed against node:stream/web; runtime is
+    // identical to the DOM ReadableStream, so we read it via its native
+    // getReader() interface without a structural cast.
+    const textStream = streamResult.textStream as unknown as ReadableStream<string>;
 
-    if (!response || !response.text) {
-      console.error("Agent returned empty response:", JSON.stringify(response));
-      return new Response("Agent returned empty response", { status: 500 });
-    }
+    const COMPLETION_MARKER = "[INTERVIEW_COMPLETE]";
+    const TAIL_SIZE = 32; // > COMPLETION_MARKER.length
 
-    // Clean up the response - remove internal notes and thinking
-    let assistantMessage = response.text;
+    let fullText = "";
+    let tail = "";
 
-    // Remove patterns like *[Mental note: ...]* or *[Note: ...]*
-    assistantMessage = assistantMessage.replace(/\*\[[\s\S]*?\]\*\s*/g, '');
+    const cleanForStorage = (raw: string): { cleaned: string; complete: boolean } => {
+      let s = raw;
+      // *[Mental note: ...]*-style
+      s = s.replace(/\*\[[\s\S]*?\]\*\s*/g, "");
+      // [Internal: ...], [Thinking: ...], etc.
+      s = s.replace(/\[(?:Internal|Mental note|Note|Thinking|Ready to|Will redirect).*?\]\s*/gi, "");
+      // Lines that are pure italic thinking
+      s = s.replace(/^\s*\*.*(?:probe|redirect|note|track).*\*\s*$/gim, "");
+      // Squash extra blank lines
+      s = s.replace(/\n{3,}/g, "\n\n").trim();
+      const complete = s.includes(COMPLETION_MARKER);
+      s = s.replace(/\s*\[INTERVIEW_COMPLETE\]\s*/g, "").trim();
+      return { cleaned: s, complete };
+    };
 
-    // Remove patterns like [Internal: ...] or [Thinking: ...]
-    assistantMessage = assistantMessage.replace(/\[(?:Internal|Mental note|Note|Thinking|Ready to|Will redirect).*?\]\s*/gi, '');
+    const encoder = new TextEncoder();
+    const responseStream = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        const reader = textStream.getReader();
+        try {
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (!value) continue;
+            fullText += value;
+            tail += value;
+            if (tail.length > TAIL_SIZE) {
+              const emit = tail.slice(0, tail.length - TAIL_SIZE);
+              tail = tail.slice(-TAIL_SIZE);
+              controller.enqueue(encoder.encode(emit));
+            }
+          }
 
-    // Remove lines that start with thinking indicators
-    assistantMessage = assistantMessage.replace(/^\s*\*.*(?:probe|redirect|note|track).*\*\s*$/gim, '');
+          // Flush the tail — but strip the completion marker first so the
+          // avatar never speaks it. Internal-note patterns are left alone
+          // in the wire stream (they very rarely appear; the agent prompt
+          // forbids them) — they're still stripped from the saved copy.
+          const tailStripped = tail.replace(/\s*\[INTERVIEW_COMPLETE\]\s*/g, "").trimEnd();
+          if (tailStripped) controller.enqueue(encoder.encode(tailStripped));
+          controller.close();
+        } catch (err) {
+          console.error("Stream pump error:", err);
+          controller.error(err);
+          return;
+        }
 
-    // Clean up extra whitespace
-    assistantMessage = assistantMessage.replace(/\n{3,}/g, '\n\n').trim();
+        // ---- Post-flight: persist + status update (don't block the response) ----
+        try {
+          if (!fullText.trim()) {
+            console.error("Agent returned empty stream");
+            return;
+          }
+          const { cleaned, complete } = cleanForStorage(fullText);
 
-    // Check for interview completion marker
-    const isComplete = assistantMessage.includes('[INTERVIEW_COMPLETE]');
+          const { error: assistantMsgError } = await supabase.from("messages").insert({
+            interview_id: interviewId,
+            role: "assistant",
+            content: cleaned,
+          });
+          if (assistantMsgError) {
+            console.error("Failed to save assistant message:", assistantMsgError);
+          }
 
-    // Remove the completion marker before saving (it's for internal use only)
-    assistantMessage = assistantMessage.replace(/\s*\[INTERVIEW_COMPLETE\]\s*/g, '').trim();
-
-    // Save assistant message to database
-    const { error: assistantMsgError } = await supabase.from("messages").insert({
-      interview_id: interviewId,
-      role: "assistant",
-      content: assistantMessage,
+          if (complete) {
+            const { error: completeError } = await supabase
+              .from("interviews")
+              .update({
+                status: "completed",
+                completed_at: new Date().toISOString(),
+              })
+              .eq("id", interviewId);
+            if (completeError) {
+              console.error("Failed to mark interview complete:", completeError);
+            }
+          }
+        } catch (err) {
+          console.error("Post-stream persistence error:", err);
+        }
+      },
     });
-    if (assistantMsgError) {
-      console.error("Failed to save assistant message:", assistantMsgError);
-      // Still return the response to user, but log the error
-      // The message was generated successfully, just not persisted
-    }
 
-    // If interview is complete, update the status
-    if (isComplete) {
-      const { error: completeError } = await supabase
-        .from("interviews")
-        .update({
-          status: "completed",
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", interviewId);
-      if (completeError) {
-        console.error("Failed to mark interview complete:", completeError);
-        // Don't fail the request, but log the error
-      }
-    }
-
-    // Return the response
-    // For now, return as a simple response (streaming can be added later)
-    return new Response(assistantMessage, {
-      headers: { "Content-Type": "text/plain" },
+    return new Response(responseStream, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        // Tell intermediaries (e.g. Vercel) not to buffer our stream.
+        "X-Accel-Buffering": "no",
+      },
     });
   } catch (error) {
     console.error("Chat API error:", error);

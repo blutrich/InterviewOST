@@ -74,6 +74,7 @@ export default function VirtualInterviewer({
   const [draft, setDraft] = useState("");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
+  const [micBlocked, setMicBlocked] = useState(false);
 
   const clientRef = useRef<AnamClient | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -84,27 +85,10 @@ export default function VirtualInterviewer({
   const supabase = createSupabaseBrowserClient();
 
   /* ------------------------------------------------------------------ */
-  /* Brain calls (POST /api/chat).                                       */
+  /* Brain calls (POST /api/chat) — STREAMING.                            */
+  /* The avatar speaks the response as it arrives token-by-token via      */
+  /* Anam's TalkMessageStream, eliminating the dead pause between turns.  */
   /* ------------------------------------------------------------------ */
-  const callBrain = useCallback(
-    async (message: string) => {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          interviewId,
-          token,
-          participantName: participantName ?? undefined,
-          message,
-        }),
-      });
-      if (!res.ok) {
-        throw new Error(`Brain returned ${res.status}: ${await res.text()}`);
-      }
-      return await res.text();
-    },
-    [interviewId, token, participantName],
-  );
 
   const checkCompletion = useCallback(async () => {
     if (completedRef.current) return false;
@@ -120,29 +104,84 @@ export default function VirtualInterviewer({
     return false;
   }, [interviewId, supabase]);
 
-  const speakReply = useCallback(
-    async (text: string) => {
+  // Pumps the response stream into Anam's TalkMessageStream. The avatar
+  // starts speaking from the first chunk; subsequent chunks extend the
+  // utterance. If the user barges in mid-speech, Anam fires
+  // TALK_STREAM_INTERRUPTED and the stream becomes inactive — we stop
+  // pumping and discard the rest of the response.
+  const streamReplyToAvatar = useCallback(
+    async (response: Response) => {
       const client = clientRef.current;
       if (!client) return;
-      const trimmed = text.trim();
-      if (!trimmed) return;
-      setPersonaCaption(trimmed);
+      if (!response.body) {
+        throw new Error("Brain response has no body to stream.");
+      }
+      const talkStream = client.createTalkMessageStream();
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+
       setStatus("speaking");
+      setPersonaCaption("");
+      // Mute the user's mic while the avatar is speaking so a hot speaker
+      // can't echo back into the mic and get transcribed as user speech.
+      // Anam's VAD also handles this, but the explicit mute is cheap insurance.
       try {
-        await client.talk(trimmed);
-      } catch (err) {
-        console.error("Anam talk() failed", err);
+        client.muteInputAudio();
+      } catch {
+        // device might not be ready yet; ignore
+      }
+
+      try {
+        while (true) {
+          if (!talkStream.isActive()) break;
+          const { value, done } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          if (!chunk) continue;
+          accumulated += chunk;
+          setPersonaCaption(accumulated);
+          await talkStream.streamMessageChunk(chunk, false);
+        }
+        if (talkStream.isActive()) {
+          await talkStream.endMessage();
+        }
+      } finally {
+        try {
+          reader.cancel();
+        } catch {
+          // ignore
+        }
+        try {
+          client.unmuteInputAudio();
+        } catch {
+          // ignore
+        }
       }
     },
     [],
   );
 
-  const finishTurn = useCallback(
-    async (reply: string) => {
-      await speakReply(reply);
+  const runTurn = useCallback(
+    async (message: string) => {
+      setStatus("thinking");
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          interviewId,
+          token,
+          participantName: participantName ?? undefined,
+          message,
+        }),
+      });
+      if (!res.ok) {
+        const detail = await res.text().catch(() => res.statusText);
+        throw new Error(`Brain returned ${res.status}: ${detail}`);
+      }
+      await streamReplyToAvatar(res);
       const done = await checkCompletion();
       if (done) {
-        // Allow the closing line to finish playing, then tear down.
         setTimeout(() => {
           clientRef.current?.stopStreaming().catch(() => {});
           clientRef.current = null;
@@ -152,8 +191,36 @@ export default function VirtualInterviewer({
       }
       setStatus("listening");
     },
-    [speakReply, checkCompletion, onComplete],
+    [interviewId, token, participantName, streamReplyToAvatar, checkCompletion, onComplete],
   );
+
+  // Non-streaming fallback for the opening line, which is generated and
+  // saved server-side during the name-submission step. We just speak the
+  // pre-generated text.
+  const speakOpening = useCallback(async (text: string) => {
+    const client = clientRef.current;
+    if (!client) return;
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setPersonaCaption(trimmed);
+    setStatus("speaking");
+    try {
+      client.muteInputAudio();
+    } catch {
+      // ignore
+    }
+    try {
+      await client.talk(trimmed);
+    } catch (err) {
+      console.error("Anam talk() failed", err);
+    } finally {
+      try {
+        client.unmuteInputAudio();
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
 
   const handleUserUtterance = useCallback(
     async (utterance: string) => {
@@ -162,9 +229,7 @@ export default function VirtualInterviewer({
       if (!text) return;
       turnInFlightRef.current = true;
       try {
-        setStatus("thinking");
-        const reply = await callBrain(text);
-        await finishTurn(reply);
+        await runTurn(text);
       } catch (err) {
         console.error(err);
         setErrorMsg(err instanceof Error ? err.message : "Something went wrong.");
@@ -173,7 +238,7 @@ export default function VirtualInterviewer({
         turnInFlightRef.current = false;
       }
     },
-    [callBrain, finishTurn],
+    [runTurn],
   );
 
   /* ------------------------------------------------------------------ */
@@ -240,10 +305,10 @@ export default function VirtualInterviewer({
       });
 
       client.addListener(AnamEvent.MIC_PERMISSION_DENIED, () => {
-        setErrorMsg(
-          "Microphone access was denied. You can still type using the keyboard button.",
-        );
-        // Don't treat as fatal — the avatar still plays and typing works.
+        // Not fatal — the avatar's TTS still works. Open the typing tray
+        // so the participant has an obvious way to continue.
+        setMicBlocked(true);
+        setTypingOpen(true);
       });
 
       client.addListener(AnamEvent.CONNECTION_CLOSED, () => {
@@ -258,11 +323,9 @@ export default function VirtualInterviewer({
         void (async () => {
           try {
             if (openingMessage?.trim()) {
-              await speakReply(openingMessage);
-              setStatus("listening");
-            } else {
-              setStatus("listening");
+              await speakOpening(openingMessage);
             }
+            setStatus("listening");
           } catch (err) {
             console.error("Failed to speak opening line", err);
             setErrorMsg(err instanceof Error ? err.message : "Failed to start interview.");
@@ -280,7 +343,7 @@ export default function VirtualInterviewer({
       clientRef.current = null;
       setStarted(false);
     }
-  }, [started, token, personaName, voiceId, openingMessage, speakReply, handleUserUtterance]);
+  }, [started, token, personaName, voiceId, openingMessage, speakOpening, handleUserUtterance]);
 
   /* ------------------------------------------------------------------ */
   /* Cleanup on unmount.                                                 */
@@ -311,11 +374,11 @@ export default function VirtualInterviewer({
     if (!typingOpen) return;
     inputRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setTypingOpen(false);
+      if (e.key === "Escape" && !micBlocked) setTypingOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [typingOpen]);
+  }, [typingOpen, micBlocked]);
 
   /* ------------------------------------------------------------------ */
   /* Render                                                              */
@@ -425,12 +488,17 @@ export default function VirtualInterviewer({
 
       {typingOpen && (
         <div className="vi-typing-tray" role="dialog" aria-label="Type a message">
+          {micBlocked && (
+            <span className="vi-typing-hint" title="Mic access blocked">
+              Mic blocked — type to chat
+            </span>
+          )}
           <input
             ref={inputRef}
             className="vi-typing-input"
             type="text"
             value={draft}
-            placeholder="Type your reply…"
+            placeholder={micBlocked ? "Type your reply (mic blocked)…" : "Type your reply…"}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -447,16 +515,18 @@ export default function VirtualInterviewer({
           >
             <Send size={16} strokeWidth={2.25} />
           </button>
-          <button
-            className="vi-typing-close"
-            onClick={() => {
-              setTypingOpen(false);
-              setDraft("");
-            }}
-            aria-label="Close text input"
-          >
-            <X size={16} strokeWidth={2.25} />
-          </button>
+          {!micBlocked && (
+            <button
+              className="vi-typing-close"
+              onClick={() => {
+                setTypingOpen(false);
+                setDraft("");
+              }}
+              aria-label="Close text input"
+            >
+              <X size={16} strokeWidth={2.25} />
+            </button>
+          )}
         </div>
       )}
     </div>
