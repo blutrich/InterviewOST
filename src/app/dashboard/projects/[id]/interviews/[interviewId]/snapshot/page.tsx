@@ -9,6 +9,7 @@ import {
   QuoteReel,
   FactsPanel,
   BlindSpotAlert,
+  InsightsPanel,
   ValidationUI,
 } from "@/components/snapshot";
 import { GenerateSnapshotButton } from "./GenerateSnapshotButton";
@@ -169,6 +170,9 @@ export default async function InterviewSnapshotPage({ params }: Props) {
             <QuoteReel quotes={snapshot.quote_reel || []} />
             <FactsPanel facts={snapshot.facts || {}} />
           </div>
+
+          {/* Insights (Fact vs Interpretation) */}
+          <InsightsPanel insights={snapshot.insights || []} />
 
           {/* Blind Spots */}
           <BlindSpotAlert blindSpots={snapshot.blind_spots || []} />

@@ -51,6 +51,15 @@ const interviewSnapshotSchema = z.object({
       severity: z.enum(["low", "medium", "high"]),
     })
   ),
+  // Teresa Torres "Insights" column: separate observed FACTS from your
+  // INTERPRETATION of them. Each item groups one or more facts with the
+  // conclusion drawn from them.
+  insights: z.array(
+    z.object({
+      facts: z.array(z.string()),
+      interpretation: z.string(),
+    })
+  ),
 });
 
 export async function POST(req: Request) {
@@ -143,7 +152,13 @@ ${interview.participant_name || "Anonymous"}
 
 ---
 
-Generate the Interview Snapshot JSON with experience_map, quote_reel, facts, and blind_spots.`;
+Generate the Interview Snapshot JSON with experience_map, quote_reel, facts, blind_spots, and insights.
+
+For "insights", follow Teresa Torres' Fact-vs-Insight distinction: capture things you heard or
+observed that aren't opportunities but are worth remembering. Each item lists one or more concrete
+FACTS (what the participant actually said or did — observed behavior, not interpretation) and your
+INTERPRETATION (the conclusion or judgment you draw from those facts). Keep facts verbatim-ish and
+interpretations clearly separate.`;
 
     const response = await synthesizer.generate(prompt, {
       output: interviewSnapshotSchema,
@@ -160,6 +175,7 @@ Generate the Interview Snapshot JSON with experience_map, quote_reel, facts, and
         quote_reel: snapshot.quote_reel,
         facts: snapshot.facts,
         blind_spots: snapshot.blind_spots,
+        insights: snapshot.insights,
         status: "pending", // Pending human validation
       })
       .select()
