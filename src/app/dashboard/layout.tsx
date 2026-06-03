@@ -51,9 +51,12 @@ export default async function DashboardLayout({
           <div className="flex items-center gap-8">
             {/* Logo */}
             <Link href="/dashboard" className="flex items-center gap-3 group">
-              <div className="w-9 h-9 rounded-lg bg-landing-forest flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
-                <span className="text-white font-serif text-lg font-medium">D</span>
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/base44-mark.svg"
+                alt="Base44"
+                className="w-9 h-9 transition-transform duration-300 group-hover:scale-105"
+              />
               <div className="hidden sm:block">
                 <span className="text-landing-charcoal font-medium tracking-tight text-sm">
                   Discovery
