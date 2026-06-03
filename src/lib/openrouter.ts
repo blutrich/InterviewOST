@@ -11,7 +11,7 @@ export const models = {
   default: "anthropic/claude-sonnet-4",
 
   // Model that conducts the live interview (interviewer agent only)
-  interviewer: "openai/gpt-5",
+  interviewer: "anthropic/claude-opus-4.8",
 
   // Fast model for real-time responses
   fast: "anthropic/claude-haiku-latest",
