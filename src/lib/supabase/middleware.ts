@@ -51,7 +51,8 @@ export async function updateSession(request: NextRequest) {
   const isPublicApiRoute =
     request.nextUrl.pathname === "/api/chat" ||
     request.nextUrl.pathname === "/api/interviews/join" ||
-    request.nextUrl.pathname === "/api/anam-session-token";
+    request.nextUrl.pathname === "/api/anam-session-token" ||
+    request.nextUrl.pathname === "/api/interviews";
 
   // Allow public routes (removed isApiRoute - API routes now require auth)
   if (isPublicInterviewRoute || isPublicJoinRoute || isCallbackRoute || isPublicApiRoute || isLandingPage || isPublicDocsRoute) {

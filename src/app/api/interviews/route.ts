@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient, getAuthenticatedUser, verifyProjectOwnership } from "@/lib/supabase/server";
+import { createClient, createServiceClient, getAuthenticatedUser, verifyBearerToken, verifyProjectOwnership } from "@/lib/supabase/server";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 
@@ -70,13 +70,11 @@ export async function GET(req: Request) {
 }
 
 // POST - Create a new interview
+// Accepts session auth (UI) or Bearer <SUPABASE_SERVICE_ROLE_KEY> (integrations)
 export async function POST(req: Request) {
   try {
-    // Auth check
-    const { user, error: authError } = await getAuthenticatedUser();
-    if (authError) return authError;
+    const isBearerAuth = verifyBearerToken(req);
 
-    // Validate input
     const body = await req.json();
     const validated = createInterviewSchema.safeParse(body);
     if (!validated.success) {
@@ -87,15 +85,19 @@ export async function POST(req: Request) {
     }
     const { projectId, templateId, participantName } = validated.data;
 
-    // Authorization: verify user owns this project
-    const { authorized, error: ownershipError } = await verifyProjectOwnership(projectId, user!.id);
-    if (!authorized) {
-      return NextResponse.json({ error: ownershipError }, { status: 403 });
+    if (!isBearerAuth) {
+      const { user, error: authError } = await getAuthenticatedUser();
+      if (authError) return authError;
+
+      const { authorized, error: ownershipError } = await verifyProjectOwnership(projectId, user!.id);
+      if (!authorized) {
+        return NextResponse.json({ error: ownershipError }, { status: 403 });
+      }
     }
 
-    const supabase = await createClient();
+    // Bearer auth uses service client (bypasses RLS); session auth uses regular client
+    const supabase = isBearerAuth ? await createServiceClient() : await createClient();
 
-    // If no templateId provided, try to get the active template
     let finalTemplateId = templateId;
     if (!finalTemplateId) {
       const { data: activeTemplate } = await supabase
@@ -110,10 +112,8 @@ export async function POST(req: Request) {
       }
     }
 
-    // Generate a unique access token
     const accessToken = nanoid(12);
 
-    // Create the interview (using regular client, not service client)
     const { data: interview, error } = await supabase
       .from("interviews")
       .insert({
@@ -131,7 +131,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Failed to create interview" }, { status: 500 });
     }
 
-    // Generate the interview link
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const interviewLink = `${baseUrl}/i/${accessToken}`;
 
