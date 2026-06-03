@@ -2,6 +2,14 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+// Verify a Bearer token matches the service role key (for API integrations)
+export function verifyBearerToken(req: Request): boolean {
+  const authHeader = req.headers.get("authorization");
+  if (!authHeader?.startsWith("Bearer ")) return false;
+  const token = authHeader.slice(7);
+  return token === process.env.SUPABASE_SERVICE_ROLE_KEY;
+}
+
 // Helper to get authenticated user and return 401 if not authenticated
 export async function getAuthenticatedUser() {
   const supabase = await createClient();
