@@ -30,9 +30,14 @@ interface VirtualInterviewerProps {
   participantName: string | null;
   /** Opening line generated upstream during the name-submission step. */
   openingMessage: string;
-  /** Optional persona overrides. */
+  /** Display name for the persona shown in the UI chip + caption label. */
   personaName?: string;
-  voiceId?: string;
+  /**
+   * Optional override for which Anam Persona to load. Defaults to the
+   * project persona configured in avatarConfig.ts. The persona itself
+   * owns avatar / voice / system prompt — set those in lab.anam.ai.
+   */
+  personaId?: string;
   /** Called once when the interview transitions to "completed". */
   onComplete: () => void;
 }
@@ -52,7 +57,7 @@ export default function VirtualInterviewer({
   participantName,
   openingMessage,
   personaName,
-  voiceId,
+  personaId,
   onComplete,
 }: VirtualInterviewerProps) {
   const [typingOpen, setTypingOpen] = useState(false);
@@ -67,8 +72,7 @@ export default function VirtualInterviewer({
 
   const session = useAnamSession({
     token,
-    personaName,
-    voiceId,
+    personaId,
     onUserUtterance: useCallback((text: string) => {
       runTurnRef.current?.(text);
     }, []),
