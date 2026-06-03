@@ -1,41 +1,48 @@
 /**
- * Tail-buffered, marker-stripping transform for the Interviewer agent's
- * streaming text. Pure (no I/O), so it's trivial to reason about and to
- * unit-test if someone wants to.
+ * Streaming-safe annotation stripper for the Interviewer agent's text. Pure
+ * (no I/O), so it's trivial to reason about and to unit-test.
  *
- * The cleaner exists because:
- *   - We stream raw agent tokens to the avatar via Anam's TalkMessageStream.
- *   - The agent emits `[INTERVIEW_COMPLETE]` as a sentinel on the final
- *     turn; the avatar must never speak the literal text.
- *   - A token boundary can split the marker across chunks, so we can't
- *     do a simple per-chunk regex on its own.
+ * Two kinds of text must never reach the avatar's TTS / captions:
+ *   - the `[INTERVIEW_COMPLETE]` sentinel the agent emits on the final turn,
+ *     and
+ *   - internal-thinking annotations the agent is instructed NOT to emit but
+ *     occasionally still does: `*[Mental note: ...]*`, `[Internal: ...]`,
+ *     `[Thinking: ...]`, etc.
  *
- * Strategy:
- *   1. Keep a tail buffer of `TAIL_SIZE` chars (> marker length).
- *   2. On each chunk, append to the buffer. If it exceeds TAIL_SIZE, emit
- *      the overflow (with a defensive marker strip in case the agent ever
- *      puts the marker mid-response, which it shouldn't but might).
- *   3. At end of stream, strip the marker from whatever's still in the
- *      tail buffer and emit that.
+ * Both used to be scrubbed server-side before the (non-streaming) response
+ * was returned. Now we stream raw tokens to the avatar as they arrive, and a
+ * token boundary can split any of these across chunks — so a naive per-chunk
+ * regex misses an annotation straddling two emits.
  *
- * On the saved-to-Supabase copy we additionally strip internal-thinking
- * patterns (`*[Mental note: ...]*`, `[Internal: ...]`, etc.).
+ * Every annotation we care about opens with `[` (optionally preceded by `*`).
+ * So the cleaner withholds output from the first unclosed `[` (plus a leading
+ * `*`, and a possible trailing `]*` for the `*[...]*` form) until the span is
+ * provably complete, then runs the annotation regexes over it before
+ * emitting. Bracket-free normal text — the overwhelming majority — streams
+ * through with no added latency. A malformed, never-closed bracket is
+ * resolved (best-effort) at flush().
  */
 
 const COMPLETION_MARKER_RE = /\s*\[INTERVIEW_COMPLETE\]\s*/g;
 
 export const COMPLETION_MARKER = "[INTERVIEW_COMPLETE]";
-export const DEFAULT_TAIL_SIZE = 32; // strictly greater than marker length
 
-export interface StreamCleanerOptions {
-  /** Override the tail buffer size for testing. Defaults to 32. */
-  tailSize?: number;
-}
+/**
+ * Bracketed annotations to strip on BOTH the wire and the stored copy. Each
+ * opens with `[` or `*[`, which is what the streaming withhold logic guards.
+ * (The bare-italic-line case — `*...probe...*` with no brackets — is handled
+ * storage-side only; it's line-anchored and far lower risk on the wire.)
+ */
+const ANNOTATION_RES: RegExp[] = [
+  /\*\[[\s\S]*?\]\*\s*/g, // *[Mental note: ...]*
+  /\[(?:Internal|Mental note|Note|Thinking|Ready to|Will redirect)[\s\S]*?\]\s*/gi,
+  COMPLETION_MARKER_RE, // [INTERVIEW_COMPLETE]
+];
 
 export interface StreamCleaner {
   /** Returns the bytes safe to forward to the client right now. May be "". */
   push(chunk: string): string;
-  /** Returns the final flush (tail with marker stripped). May be "". */
+  /** Returns the final flush (held tail, annotations stripped). May be "". */
   flush(): string;
   /** The complete (unstripped) text accumulated so far. */
   getRaw(): string;
@@ -45,28 +52,71 @@ export function stripCompletionMarker(s: string): string {
   return s.replace(COMPLETION_MARKER_RE, "");
 }
 
-export function createStreamCleaner(opts: StreamCleanerOptions = {}): StreamCleaner {
-  const TAIL_SIZE = opts.tailSize ?? DEFAULT_TAIL_SIZE;
+/** Strip every recognized bracketed annotation (and the marker) from a span. */
+function stripAnnotations(s: string): string {
+  let out = s;
+  for (const re of ANNOTATION_RES) out = out.replace(re, "");
+  return out;
+}
+
+/**
+ * Split `buf` into [emit, hold]: the prefix that's provably outside any
+ * pending annotation (with complete annotations stripped), and the suffix
+ * that must be withheld until more text arrives. When `final` is true nothing
+ * is withheld — any dangling open bracket is stripped best-effort and emitted.
+ */
+function splitEmittable(buf: string, final: boolean): [string, string] {
+  const open = buf.indexOf("[");
+
+  if (open === -1) {
+    // No bracket. A trailing `*` could begin a `*[` annotation next chunk, so
+    // hold it back (one char) unless we're flushing.
+    if (!final && buf.endsWith("*")) return [buf.slice(0, -1), "*"];
+    return [buf, ""];
+  }
+
+  // Annotation start: include an immediately-preceding `*` (the `*[...]*` form).
+  const annStart = open > 0 && buf[open - 1] === "*" ? open - 1 : open;
+  const prefix = buf.slice(0, annStart); // bracket-free, safe to emit
+  const starLed = buf[annStart] === "*";
+
+  const close = buf.indexOf("]", open);
+  if (close === -1) {
+    // Unclosed bracket.
+    if (final) return [prefix + stripAnnotations(buf.slice(annStart)), ""];
+    return [prefix, buf.slice(annStart)];
+  }
+
+  // `*[...]*` closes with `]*`, so we need the char after `]` to know the span
+  // end. If it isn't here yet, hold (unless flushing).
+  let spanEnd = close + 1;
+  if (starLed) {
+    if (spanEnd >= buf.length && !final) return [prefix, buf.slice(annStart)];
+    if (buf[spanEnd] === "*") spanEnd += 1;
+  }
+
+  const span = stripAnnotations(buf.slice(annStart, spanEnd));
+  const [emitRest, hold] = splitEmittable(buf.slice(spanEnd), final);
+  return [prefix + span + emitRest, hold];
+}
+
+export function createStreamCleaner(): StreamCleaner {
   let raw = "";
-  let tail = "";
+  let buf = ""; // text held back pending a possible annotation
 
   return {
     push(chunk: string): string {
       if (!chunk) return "";
       raw += chunk;
-      tail += chunk;
-      if (tail.length <= TAIL_SIZE) return "";
-      const overflow = tail.slice(0, tail.length - TAIL_SIZE);
-      tail = tail.slice(-TAIL_SIZE);
-      // Defensive marker strip on the emit path itself (not just the
-      // final flush). This catches the unusual case where the agent puts
-      // [INTERVIEW_COMPLETE] mid-response instead of at the end.
-      return stripCompletionMarker(overflow);
+      buf += chunk;
+      const [emit, hold] = splitEmittable(buf, false);
+      buf = hold;
+      return emit;
     },
     flush(): string {
-      const out = stripCompletionMarker(tail).trimEnd();
-      tail = "";
-      return out;
+      const [emit] = splitEmittable(buf, true);
+      buf = "";
+      return emit.trimEnd();
     },
     getRaw(): string {
       return raw;
@@ -76,27 +126,21 @@ export function createStreamCleaner(opts: StreamCleanerOptions = {}): StreamClea
 
 /**
  * Storage-time cleaning. Strips internal-thinking annotations and the
- * completion marker, returning the cleaned text and whether the marker
- * was present (used to flip `interviews.status` to "completed").
+ * completion marker, returning the cleaned text and whether the marker was
+ * present (used to flip `interviews.status` to "completed").
  */
 export function cleanForStorage(raw: string): {
   cleaned: string;
   complete: boolean;
 } {
-  let s = raw;
-  // *[Mental note: ...]*-style
-  s = s.replace(/\*\[[\s\S]*?\]\*\s*/g, "");
-  // [Internal: ...], [Thinking: ...], etc.
-  s = s.replace(
-    /\[(?:Internal|Mental note|Note|Thinking|Ready to|Will redirect).*?\]\s*/gi,
-    "",
-  );
-  // Lines that are pure italic thinking
+  // Detect completion on the raw text — stripAnnotations removes the marker.
+  const complete = raw.includes(COMPLETION_MARKER);
+
+  let s = stripAnnotations(raw);
+  // Lines that are pure italic thinking (storage-only; line-anchored).
   s = s.replace(/^\s*\*.*(?:probe|redirect|note|track).*\*\s*$/gim, "");
-  // Squash extra blank lines
+  // Squash extra blank lines.
   s = s.replace(/\n{3,}/g, "\n\n").trim();
 
-  const complete = s.includes(COMPLETION_MARKER);
-  s = stripCompletionMarker(s).trim();
   return { cleaned: s, complete };
 }
