@@ -16,10 +16,12 @@
 // responses via talk()/createTalkMessageStream()."
 export const ANAM_CUSTOMER_CLIENT_LLM_ID = "CUSTOMER_CLIENT_V1";
 
-// Default avatar is a custom avatar managed in the project's Anam Lab
-// account. To change it: pick another avatar in lab.anam.ai, copy its UUID,
-// and paste it here. Voice still defaults to "Liv" from Anam's public gallery.
-const DEFAULT_AVATAR_ID = "ee9cc649-dab9-41e5-87fa-1a4048527dcf"; // custom
+// Default avatar. NOTE: this must be an AVATAR id, not a persona id — Anam's
+// session-token call validates the field and 400s ("Invalid request to start
+// session") if a persona id is passed here. To use a custom avatar, open the
+// avatar (not the persona) in lab.anam.ai and copy its UUID. Voice still
+// defaults to "Liv" from Anam's public gallery.
+const DEFAULT_AVATAR_ID = "30fa96d0-26c4-4e55-94a0-517025942e18"; // "Cara"
 const DEFAULT_VOICE_ID = "4bdb224b-0342-4986-9831-69a1f059103d"; // "Liv" — warm female
 
 export interface BuildPersonaConfigOptions {
