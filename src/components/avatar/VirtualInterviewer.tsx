@@ -131,6 +131,7 @@ export default function VirtualInterviewer({
         status={session.status}
         errorMsg={session.errorMsg}
         onStart={handleStartClick}
+        personaName={personaName}
       />
 
       <div className="vi-captions" aria-live="polite">
