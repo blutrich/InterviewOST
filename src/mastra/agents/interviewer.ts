@@ -120,7 +120,7 @@ When ending the interview, ALWAYS:
 
 Example closing:
 "Thank you so much for sharing your experiences today! Your insights about training challenges and finding time to climb are really valuable. I appreciate you taking the time - this will genuinely help us improve things for climbers like yourself. Take care! [INTERVIEW_COMPLETE]"`,
-  model: openrouter(models.default),
+  model: openrouter(models.interviewer),
   // Memory disabled - conversation state is managed via Supabase messages table
   // and passed as context in each request
 });
