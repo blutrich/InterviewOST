@@ -1,6 +1,67 @@
 import { NextResponse } from "next/server";
-import { createClient, getAuthenticatedUser, verifyProjectOwnership } from "@/lib/supabase/server";
+import { createClient, createServiceClient, getAuthenticatedUser, verifyBearerToken, verifyProjectOwnership } from "@/lib/supabase/server";
 import { z } from "zod";
+
+// GET - List projects with their active template
+// Accepts Bearer <SUPABASE_SERVICE_ROLE_KEY> (public for integrations)
+export async function GET(req: Request) {
+  try {
+    if (!verifyBearerToken(req)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const supabase = await createServiceClient();
+
+    const { data: projects, error } = await supabase
+      .from("projects")
+      .select(`
+        id,
+        name,
+        description,
+        research_goals,
+        target_audience,
+        desired_outcome,
+        status,
+        created_at,
+        templates!inner (
+          id,
+          name,
+          share_token,
+          rubric
+        )
+      `)
+      .eq("status", "active")
+      .eq("templates.is_active", true)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Database error:", error);
+      return NextResponse.json({ error: "Failed to fetch projects" }, { status: 500 });
+    }
+
+    const result = (projects || []).map((project) => {
+      const template = Array.isArray(project.templates)
+        ? project.templates[0]
+        : project.templates;
+      return {
+        id: project.id,
+        name: project.name,
+        description: project.description,
+        research_goals: project.research_goals,
+        target_audience: project.target_audience,
+        desired_outcome: project.desired_outcome,
+        status: project.status,
+        created_at: project.created_at,
+        active_template: template || null,
+      };
+    });
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Get projects error:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
 
 const updateProjectSchema = z.object({
   projectId: z.string().uuid("Invalid project ID"),
