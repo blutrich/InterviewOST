@@ -7,7 +7,8 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Fetch user's projects with interview counts
+  // Fetch projects the user can access (owned + shared via project_members).
+  // RLS scopes the result, so no explicit user_id filter is needed.
   const { data: projects } = await supabase
     .from("projects")
     .select(
@@ -17,7 +18,6 @@ export default async function DashboardPage() {
       templates:templates(count)
     `
     )
-    .eq("user_id", user!.id)
     .order("created_at", { ascending: false });
 
   const getStatusStyle = (status: string) => {

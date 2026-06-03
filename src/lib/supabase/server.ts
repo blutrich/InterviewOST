@@ -14,21 +14,21 @@ export async function getAuthenticatedUser() {
   return { user, error: null };
 }
 
-// Helper to verify user owns a project
-export async function verifyProjectOwnership(projectId: string, userId: string) {
+// Helper to verify a user can access a project (owner OR collaborator).
+// Access is governed by RLS: the authenticated client can only SELECT a
+// project row if the user is the owner or a member (see migration 005).
+// So a successful fetch == authorized. `userId` is kept for signature
+// compatibility with existing call sites.
+export async function verifyProjectOwnership(projectId: string, _userId?: string) {
   const supabase = await createClient();
   const { data: project, error } = await supabase
     .from("projects")
-    .select("id, user_id")
+    .select("id")
     .eq("id", projectId)
     .single();
 
   if (error || !project) {
-    return { authorized: false, error: "Project not found" };
-  }
-
-  if (project.user_id !== userId) {
-    return { authorized: false, error: "Forbidden" };
+    return { authorized: false, error: "Project not found or access denied" };
   }
 
   return { authorized: true, error: null };

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ProjectTabs } from "./ProjectTabs";
+import { EditableProjectName } from "./EditableProjectName";
 
 interface Props {
   children: React.ReactNode;
@@ -56,9 +57,7 @@ export default async function ProjectLayout({ children, params }: Props) {
               </span>
             </div>
             <div>
-              <h1 className="text-xl font-medium text-landing-charcoal">
-                {project.name}
-              </h1>
+              <EditableProjectName projectId={id} initialName={project.name} />
             </div>
             <span className={`text-[10px] uppercase tracking-wider font-medium px-2.5 py-1 rounded-full ${getStatusStyle(project.status)}`}>
               {project.status}
