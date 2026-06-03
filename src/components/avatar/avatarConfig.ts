@@ -54,8 +54,17 @@ export function buildPersonaConfig(
  *   opening on the first /api/chat call; the avatar speaks that.
  * - `uninterruptibleGreeting`: false so the participant can barge-in
  *   immediately if they want.
+ * - `voiceDetectionOptions.speechEnhancementLevel`: 1 = maximum noise
+ *   reduction on the mic input before VAD runs. Background sounds
+ *   (cough, paper rustle, fan, dog bark) are filtered out and won't
+ *   spuriously interrupt the avatar mid-sentence. Intentional speech
+ *   from the participant still triggers barge-in normally — Anam does
+ *   not expose a "disable barge-in entirely" switch.
  */
 export const SESSION_OPTIONS = {
   skipGreeting: true,
   uninterruptibleGreeting: false,
+  voiceDetectionOptions: {
+    speechEnhancementLevel: 1,
+  },
 } as const;
