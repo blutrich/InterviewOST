@@ -63,6 +63,8 @@ const updateSchema = z.object({
   recommendationId: z.string().uuid("Invalid recommendation ID"),
   status: z.enum(["pending", "approved", "rejected"]).optional(),
   human_notes: z.string().max(5000, "Notes too long").optional(),
+  // null clears the assignment; non-null sets it
+  owner_email: z.union([z.string().email("Invalid email"), z.null()]).optional(),
 });
 
 // Validated shape of the agent's JSON output
@@ -437,7 +439,7 @@ export async function PATCH(req: Request) {
         { status: 400 }
       );
     }
-    const { recommendationId, status, human_notes } = validated.data;
+    const { recommendationId, status, human_notes, owner_email } = validated.data;
 
     const supabase = await createClient();
 
@@ -469,6 +471,11 @@ export async function PATCH(req: Request) {
       }
     }
     if (human_notes !== undefined) updates.human_notes = human_notes;
+    if (owner_email !== undefined) {
+      updates.owner_email = owner_email; // null clears
+      updates.owner_assigned_at = owner_email ? new Date().toISOString() : null;
+      updates.owner_assigned_by = owner_email ? user!.id : null;
+    }
 
     const { data, error } = await supabase
       .from("recommendations")

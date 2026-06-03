@@ -17,6 +17,10 @@ export interface Recommendation {
   human_notes: string | null;
   validated_at: string | null;
   validated_by: string | null;
+  // Owner assignment (migration 008)
+  owner_email: string | null;
+  owner_assigned_at: string | null;
+  owner_assigned_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -37,45 +41,44 @@ export const RECOMMENDATION_ORDER: RecommendationType[] = [
   "standalone",
 ];
 
-// Classes are written out in full so Tailwind's scanner can see them at build
-// time. Constructing class strings dynamically (e.g. with `.split()`) defeats
-// Tailwind's tree-shaking and the colors won't render in production.
+// Soft, single-accent design — one dot color + one muted text color per tier.
+// Everything else (card body, borders, sections) stays neutral so the UI
+// reads as enterprise/calm rather than rainbow-coded.
+//
+// All classes are written out in full so Tailwind's scanner picks them up.
 export const TYPE_META: Record<
   RecommendationType,
   {
     label: string;
     tagline: string;
-    textClass: string;
-    borderClass: string;
-    bgClass: string;
+    /** Accent color used for the tier label text only. */
+    accentTextClass: string;
+    /** Tiny dot used as the only color cue in the collapsed card header. */
+    accentDotClass: string;
   }
 > = {
   solid: {
     label: "Solid Feature",
-    tagline: "Practical · close to current direction · ship in weeks",
-    textClass: "text-emerald-700",
-    borderClass: "border-emerald-300",
-    bgClass: "bg-emerald-50",
+    tagline: "Practical · ships in weeks",
+    accentTextClass: "text-emerald-700",
+    accentDotClass: "bg-emerald-500",
   },
   bold: {
     label: "Bold Strategic",
-    tagline: "Ambitious · competitor-aware · 1–2 quarters",
-    textClass: "text-amber-700",
-    borderClass: "border-amber-300",
-    bgClass: "bg-amber-50",
+    tagline: "Ambitious · 1–2 quarters",
+    accentTextClass: "text-amber-700",
+    accentDotClass: "bg-amber-500",
   },
   moonshot: {
     label: "Moonshot",
-    tagline: "Breakthrough · trend-driven · new audience",
-    textClass: "text-purple-700",
-    borderClass: "border-purple-300",
-    bgClass: "bg-purple-50",
+    tagline: "Breakthrough · trend-driven",
+    accentTextClass: "text-purple-700",
+    accentDotClass: "bg-purple-500",
   },
   standalone: {
     label: "Standalone Product",
-    tagline: "Independent · spin-out potential · shared core only",
-    textClass: "text-blue-700",
-    borderClass: "border-blue-300",
-    bgClass: "bg-blue-50",
+    tagline: "Independent · spin-out potential",
+    accentTextClass: "text-sky-700",
+    accentDotClass: "bg-sky-500",
   },
 };

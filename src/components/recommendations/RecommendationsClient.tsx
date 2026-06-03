@@ -122,7 +122,7 @@ export default function RecommendationsClient({
 
   const updateRecommendation = async (
     id: string,
-    updates: { status?: Recommendation["status"]; human_notes?: string }
+    updates: { status?: Recommendation["status"]; human_notes?: string; owner_email?: string | null }
   ) => {
     setErrorMsg(null);
     const res = await fetch("/api/recommendations", {
@@ -131,7 +131,10 @@ export default function RecommendationsClient({
       body: JSON.stringify({ recommendationId: id, ...updates }),
     });
     if (!res.ok) {
-      setErrorMsg("Failed to update recommendation");
+      const body = await res.json().catch(() => null);
+      // eslint-disable-next-line no-console
+      console.error("[recommendations] PATCH failed", { status: res.status, body });
+      setErrorMsg(formatErrorBody(body, res.status));
       return;
     }
     const { recommendation } = (await res.json()) as { recommendation: Recommendation };
