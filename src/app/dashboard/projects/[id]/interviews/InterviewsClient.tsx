@@ -40,6 +40,10 @@ export default function InterviewsClient({
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
   const [savingName, setSavingName] = useState(false);
+  const [createMode, setCreateMode] = useState<"live" | "import">("live");
+  const [transcript, setTranscript] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const [importedId, setImportedId] = useState<string | null>(null);
 
   const createInterview = async () => {
     setIsCreating(true);
@@ -75,6 +79,58 @@ export default function InterviewsClient({
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const importTranscript = async () => {
+    setIsImporting(true);
+    try {
+      const res = await fetch("/api/interviews/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId,
+          participantName: participantName || undefined,
+          transcript,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to import transcript");
+      }
+
+      const newInterview = await res.json();
+      setInterviews([
+        {
+          ...newInterview,
+          has_snapshot: false,
+          snapshot_status: null,
+          template_name: activeTemplate?.name,
+        },
+        ...interviews,
+      ]);
+      setImportedId(newInterview.id);
+      setParticipantName("");
+      setTranscript("");
+    } catch (error) {
+      console.error("Error importing transcript:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Failed to import transcript. Please try again."
+      );
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const closeCreateDialog = () => {
+    setShowCreateDialog(false);
+    setCreatedLink(null);
+    setImportedId(null);
+    setCreateMode("live");
+    setTranscript("");
+    setParticipantName("");
   };
 
   const updateInterviewStatus = async (interviewId: string, status: string) => {
@@ -388,54 +444,24 @@ export default function InterviewsClient({
       {/* Create Interview Dialog */}
       {showCreateDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-landing-charcoal/50 backdrop-blur-sm" onClick={() => !createdLink && setShowCreateDialog(false)} />
+          <div className="absolute inset-0 bg-landing-charcoal/50 backdrop-blur-sm" onClick={() => !createdLink && !importedId && closeCreateDialog()} />
           <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 m-4">
             <h2 className="text-2xl font-light text-landing-charcoal mb-2">
-              {createdLink ? "Interview Created" : "Create New Interview"}
+              {createdLink ? "Interview Created" : importedId ? "Transcript Imported" : "New Interview"}
             </h2>
             <p className="text-sm text-landing-stone mb-6">
               {createdLink
                 ? "Share this link with your participant."
-                : activeTemplate
-                  ? `Using template: ${activeTemplate.name}`
-                  : "No active template selected."
-              }
+                : importedId
+                  ? "Saved as a completed interview. Generate the snapshot to map it onto your tree."
+                  : createMode === "import"
+                    ? "Paste an existing transcript — no live interview needed."
+                    : activeTemplate
+                      ? `Using template: ${activeTemplate.name}`
+                      : "No active template selected."}
             </p>
 
-            {!createdLink ? (
-              <>
-                <div className="space-y-2 mb-6">
-                  <label className="block text-[11px] uppercase tracking-[0.15em] text-landing-charcoal font-medium">
-                    Participant Name (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Enter participant name..."
-                    value={participantName}
-                    onChange={(e) => setParticipantName(e.target.value)}
-                    className="w-full h-12 px-4 bg-landing-ivory border border-landing-charcoal/10 rounded-xl text-landing-charcoal placeholder:text-landing-stone/50 focus:outline-none focus:border-landing-forest focus:ring-2 focus:ring-landing-forest/10 transition-all duration-300"
-                  />
-                  <p className="text-xs text-landing-stone">
-                    Participants can enter their name when they join.
-                  </p>
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShowCreateDialog(false)}
-                    className="flex-1 h-11 border border-landing-charcoal/10 text-landing-charcoal text-[12px] uppercase tracking-wider font-medium rounded-full hover:border-landing-charcoal/30 hover:bg-landing-mist transition-all duration-300"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={createInterview}
-                    disabled={isCreating}
-                    className="flex-1 h-11 bg-landing-forest text-white text-[12px] uppercase tracking-wider font-medium rounded-full hover:bg-landing-forest-light transition-all duration-300 disabled:opacity-50"
-                  >
-                    {isCreating ? "Creating..." : "Create"}
-                  </button>
-                </div>
-              </>
-            ) : (
+            {createdLink ? (
               <>
                 <div className="space-y-2 mb-6">
                   <label className="block text-[11px] uppercase tracking-[0.15em] text-landing-charcoal font-medium">
@@ -461,14 +487,106 @@ export default function InterviewsClient({
                   </div>
                 </div>
                 <button
-                  onClick={() => {
-                    setShowCreateDialog(false);
-                    setCreatedLink(null);
-                  }}
+                  onClick={closeCreateDialog}
                   className="w-full h-11 bg-landing-forest text-white text-[12px] uppercase tracking-wider font-medium rounded-full hover:bg-landing-forest-light transition-all duration-300"
                 >
                   Done
                 </button>
+              </>
+            ) : importedId ? (
+              <div className="flex gap-3">
+                <button
+                  onClick={closeCreateDialog}
+                  className="flex-1 h-11 border border-landing-charcoal/10 text-landing-charcoal text-[12px] uppercase tracking-wider font-medium rounded-full hover:border-landing-charcoal/30 hover:bg-landing-mist transition-all duration-300"
+                >
+                  Done
+                </button>
+                <Link
+                  href={`/dashboard/projects/${projectId}/interviews/${importedId}/snapshot`}
+                  className="flex-1 h-11 bg-landing-forest text-white text-[12px] uppercase tracking-wider font-medium rounded-full hover:bg-landing-forest-light transition-all duration-300 flex items-center justify-center"
+                >
+                  Analyze
+                </Link>
+              </div>
+            ) : (
+              <>
+                {/* Mode toggle */}
+                <div className="flex gap-1 mb-5 p-1 bg-landing-ivory rounded-full border border-landing-charcoal/10">
+                  {(["live", "import"] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setCreateMode(m)}
+                      className={`flex-1 h-9 text-[12px] uppercase tracking-wider font-medium rounded-full transition-all duration-300 ${
+                        createMode === m
+                          ? "bg-landing-forest text-white"
+                          : "text-landing-stone hover:text-landing-charcoal"
+                      }`}
+                    >
+                      {m === "live" ? "Live link" : "Import transcript"}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-2 mb-4">
+                  <label className="block text-[11px] uppercase tracking-[0.15em] text-landing-charcoal font-medium">
+                    Participant Name (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter participant name..."
+                    value={participantName}
+                    onChange={(e) => setParticipantName(e.target.value)}
+                    className="w-full h-12 px-4 bg-landing-ivory border border-landing-charcoal/10 rounded-xl text-landing-charcoal placeholder:text-landing-stone/50 focus:outline-none focus:border-landing-forest focus:ring-2 focus:ring-landing-forest/10 transition-all duration-300"
+                  />
+                </div>
+
+                {createMode === "import" ? (
+                  <div className="space-y-2 mb-6">
+                    <label className="block text-[11px] uppercase tracking-[0.15em] text-landing-charcoal font-medium">
+                      Transcript
+                    </label>
+                    <textarea
+                      placeholder={"Paste the interview transcript here...\n\nName: ...\nInterviewer: ..."}
+                      value={transcript}
+                      onChange={(e) => setTranscript(e.target.value)}
+                      rows={8}
+                      className="w-full px-4 py-3 bg-landing-ivory border border-landing-charcoal/10 rounded-xl text-landing-charcoal text-sm placeholder:text-landing-stone/50 focus:outline-none focus:border-landing-forest focus:ring-2 focus:ring-landing-forest/10 transition-all duration-300 resize-y"
+                    />
+                    <p className="text-xs text-landing-stone">
+                      Saved as a completed interview — then generate the snapshot. Speaker labels like &ldquo;Name:&rdquo; are detected automatically.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-landing-stone mb-6">
+                    Participants can enter their name when they join.
+                  </p>
+                )}
+
+                <div className="flex gap-3">
+                  <button
+                    onClick={closeCreateDialog}
+                    className="flex-1 h-11 border border-landing-charcoal/10 text-landing-charcoal text-[12px] uppercase tracking-wider font-medium rounded-full hover:border-landing-charcoal/30 hover:bg-landing-mist transition-all duration-300"
+                  >
+                    Cancel
+                  </button>
+                  {createMode === "live" ? (
+                    <button
+                      onClick={createInterview}
+                      disabled={isCreating}
+                      className="flex-1 h-11 bg-landing-forest text-white text-[12px] uppercase tracking-wider font-medium rounded-full hover:bg-landing-forest-light transition-all duration-300 disabled:opacity-50"
+                    >
+                      {isCreating ? "Creating..." : "Create"}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={importTranscript}
+                      disabled={isImporting || transcript.trim().length < 20}
+                      className="flex-1 h-11 bg-landing-forest text-white text-[12px] uppercase tracking-wider font-medium rounded-full hover:bg-landing-forest-light transition-all duration-300 disabled:opacity-50"
+                    >
+                      {isImporting ? "Importing..." : "Import"}
+                    </button>
+                  )}
+                </div>
               </>
             )}
           </div>
