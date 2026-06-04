@@ -168,7 +168,17 @@ export function useAnamSession(opts: UseAnamSessionOptions): UseAnamSessionResul
       });
 
       newClient.addListener(AnamEvent.CONNECTION_CLOSED, () => {
-        setStatus((s) => (s === "speaking" || s === "thinking" ? s : "idle"));
+        setStatus((s) => {
+          if (s === "speaking" || s === "thinking") return s;
+          // A drop while listening means the live session died mid-interview.
+          // Surface an error so the UI shows the Reconnect path instead of a
+          // silently frozen avatar (status === "error" wires to retry()).
+          if (s === "listening" || s === "connecting") {
+            setErrorMsg("Connection dropped — reconnect to pick the interview back up.");
+            return "error";
+          }
+          return "idle";
+        });
       });
 
       newClient.addListener(AnamEvent.VIDEO_PLAY_STARTED, () => {
