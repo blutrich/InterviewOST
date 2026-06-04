@@ -55,7 +55,7 @@ export default function GlossaryPage() {
           Glossary
         </h1>
         <p className="text-lg text-gray-600">
-          Key terms from Teresa Torres&apos; Continuous Discovery methodology and Discovery Co-Pilot.
+          Key terms from Teresa Torres&apos; Continuous Discovery methodology and Base44 Interviewer.
         </p>
       </header>
 

@@ -59,10 +59,10 @@ export default async function DashboardLayout({
               />
               <div className="hidden sm:block">
                 <span className="text-landing-charcoal font-medium tracking-tight text-sm">
-                  Discovery
+                  Base44
                 </span>
                 <span className="text-landing-stone font-light tracking-tight text-sm ml-1">
-                  Co-Pilot
+                  Interviewer
                 </span>
               </div>
             </Link>
