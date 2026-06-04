@@ -85,7 +85,7 @@ export default function ForgotPasswordPage() {
           <div className="w-10 h-10 rounded-lg bg-landing-forest flex items-center justify-center">
             <span className="text-white font-serif text-xl font-medium">D</span>
           </div>
-          <span className="text-landing-charcoal font-medium tracking-tight">Discovery Co-Pilot</span>
+          <span className="text-landing-charcoal font-medium tracking-tight">Base44 Interviewer</span>
         </Link>
 
         <div className="space-y-2 mb-10">

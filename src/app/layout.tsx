@@ -29,7 +29,7 @@ const stkMiso = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Discovery Co-Pilot",
+  title: "Base44 Interviewer",
   description:
     "AI-powered interview platform for continuous product discovery using Teresa Torres methodology",
 };
