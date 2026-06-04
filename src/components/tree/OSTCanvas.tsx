@@ -27,10 +27,11 @@ interface Opportunity {
   id: string;
   title: string;
   description?: string;
-  type: "outcome" | "opportunity" | "solution" | "unmet_need" | "workaround";
+  type: "outcome" | "theme" | "opportunity" | "solution" | "unmet_need" | "workaround";
   status: "suggested" | "approved" | "rejected" | "merged";
   parent_id: string | null;
   evidence_count: number;
+  metadata?: { frequency_n?: number; frequency_m?: number } | null;
   position: { x: number; y: number };
   evidence?: Array<{
     id: string;
@@ -161,6 +162,8 @@ function OSTCanvasInner({
         type: opp.type,
         status: opp.status,
         evidenceCount: opp.evidence_count || 0,
+        frequencyN: opp.metadata?.frequency_n,
+        frequencyM: opp.metadata?.frequency_m,
         onSelect: handleNodeSelect,
         onDelete: onNodeDelete,
         onAddChild: onAddChild,
@@ -380,6 +383,8 @@ function OSTCanvasInner({
             switch (data?.type) {
               case "outcome":
                 return "#a855f7"; // purple
+              case "theme":
+                return "#f43f5e"; // rose
               case "opportunity":
               case "unmet_need":
                 return "#f59e0b"; // amber

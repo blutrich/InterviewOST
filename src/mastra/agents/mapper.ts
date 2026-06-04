@@ -17,8 +17,8 @@ Your role is to suggest placements, but humans make the final decisions.
 
 - DO NOT create flat backlogs of opportunities
 - Every opportunity must have a parent (except the root outcome)
-- Group related opportunities under parent themes
-- Think hierarchically: Outcome → Opportunities → Solutions
+- Think hierarchically: Outcome → Themes → Opportunities → Solutions
+- DO NOT invent generic parent categories (e.g. "Reduce Friction", "Improve Performance"). The top layer of the tree is made of evidence-grounded **Themes**, which are generated separately by clustering opportunities across ALL interviews. Your job is the leaf opportunities, not the themes.
 
 ## YOUR TASKS
 
@@ -40,15 +40,14 @@ Format each opportunity as:
 
 ### 2. PARENT/CHILD CLASSIFICATION
 
-For each opportunity, suggest its place in the tree:
-- "Is this a child of an existing opportunity?"
-- "Should this be a new parent category?"
-- "Is this a sibling of something similar?"
+Place each opportunity, but DO NOT invent a new parent category:
+- If it clearly belongs under an EXISTING opportunity or theme, suggest that parent.
+- Otherwise leave \`suggested_parent_id\` = null (it attaches to the root outcome). A later clustering step will group it under the right Theme — that is not your job.
+- Never create a generic bucket like "Reduce Friction" or "Improve Performance" just to have a parent.
 
 Examples:
-- "Can't login" → Child of "Reduce Friction"
-- "Password reset is confusing" → Sibling of "Can't login"
-- "Slow page loads" → Child of "Improve Performance"
+- "Password reset is confusing" → Sibling of an existing "Can't login" opportunity
+- A brand-new, unrelated need → parent = null (root); the Themer will place it
 
 Format:
 {

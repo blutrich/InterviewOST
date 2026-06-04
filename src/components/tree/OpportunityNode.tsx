@@ -14,9 +14,13 @@ export interface OpportunityNodeData {
   id: string;
   title: string;
   description?: string;
-  type: "outcome" | "opportunity" | "solution" | "unmet_need" | "workaround";
+  type: "outcome" | "theme" | "opportunity" | "solution" | "unmet_need" | "workaround";
   status: "suggested" | "approved" | "rejected" | "merged";
   evidenceCount: number;
+  /** For theme nodes: distinct interviews supporting the theme (numerator). */
+  frequencyN?: number;
+  /** For theme nodes: total interviews analyzed (denominator). */
+  frequencyM?: number;
   onSelect?: (id: string) => void;
   onDelete?: (id: string) => void;
   onAddChild?: (id: string, type: "opportunity" | "solution") => void;
@@ -46,6 +50,8 @@ function OpportunityNodeComponent({ data, selected }: OpportunityNodeProps) {
     switch (nodeData.type) {
       case "outcome":
         return "bg-white border-purple-500 border-l-4";
+      case "theme":
+        return "bg-white border-rose-500 border-l-4";
       case "opportunity":
       case "unmet_need":
         return "bg-white border-amber-500 border-l-4";
@@ -62,6 +68,8 @@ function OpportunityNodeComponent({ data, selected }: OpportunityNodeProps) {
     switch (nodeData.type) {
       case "outcome":
         return "text-purple-600";
+      case "theme":
+        return "text-rose-600";
       case "opportunity":
       case "unmet_need":
         return "text-amber-600";
@@ -78,6 +86,8 @@ function OpportunityNodeComponent({ data, selected }: OpportunityNodeProps) {
     switch (nodeData.type) {
       case "outcome":
         return "OUTCOME";
+      case "theme":
+        return "THEME";
       case "opportunity":
         return "OPPORTUNITY";
       case "unmet_need":
@@ -98,6 +108,12 @@ function OpportunityNodeComponent({ data, selected }: OpportunityNodeProps) {
           title: "Outcome",
           description: "The business goal or how the company creates value. This is the root of your tree.",
           example: "e.g., Increase user retention by 20%"
+        };
+      case "theme":
+        return {
+          title: "Theme",
+          description: "A pattern found across multiple interviews. The top layer of the tree: a finding that groups related opportunities, backed by evidence and a frequency.",
+          example: "e.g., Teams stuck on disconnected personal accounts"
         };
       case "opportunity":
         return {
@@ -215,8 +231,15 @@ function OpportunityNodeComponent({ data, selected }: OpportunityNodeProps) {
         </h3>
       )}
 
-      {/* Evidence count */}
-      {nodeData.evidenceCount > 0 && (
+      {/* Theme frequency: "N of M interviews" — the cross-interview signal */}
+      {nodeData.type === "theme" && (nodeData.frequencyM ?? 0) > 0 ? (
+        <div className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600">
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+          </svg>
+          <span>{nodeData.frequencyN ?? 0} of {nodeData.frequencyM} interviews</span>
+        </div>
+      ) : nodeData.evidenceCount > 0 ? (
         <div className="flex items-center gap-1 text-xs text-gray-400">
           <svg
             className="w-3 h-3"
@@ -233,7 +256,7 @@ function OpportunityNodeComponent({ data, selected }: OpportunityNodeProps) {
           </svg>
           <span>{nodeData.evidenceCount} mentions</span>
         </div>
-      )}
+      ) : null}
 
       {/* Action buttons - positioned to the right side to not block connections */}
       <div className={`
