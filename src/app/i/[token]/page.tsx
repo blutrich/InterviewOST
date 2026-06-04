@@ -89,14 +89,30 @@ export default function PublicInterviewPage() {
             throw new Error("Failed to start interview chat");
           }
 
+          // Drain the streamed opening fully. /api/chat persists the assistant
+          // message only at stream-end, so we must consume the body before
+          // reading messages back — otherwise the opening can be missing and
+          // the avatar starts silent.
+          const openingText = (await response.text()).trim();
+
           const { data: newMessages } = await supabase
             .from("messages")
             .select("*")
             .eq("interview_id", data.id)
             .order("created_at", { ascending: true });
 
-          if (newMessages) {
+          if (newMessages && newMessages.some((m) => m.role === "assistant")) {
             setMessages(newMessages);
+          } else if (openingText) {
+            // Fallback: stream done but DB read lagged — speak the opening anyway.
+            setMessages([
+              {
+                id: "opening",
+                role: "assistant",
+                content: openingText,
+                created_at: new Date().toISOString(),
+              },
+            ]);
           }
         } catch (err) {
           console.error("Failed to auto-start interview:", err);
@@ -205,13 +221,28 @@ export default function PublicInterviewPage() {
         throw new Error("Failed to start interview chat");
       }
 
+      // Drain the streamed opening so the assistant message is persisted
+      // before we read it back (otherwise the avatar can start silent).
+      const openingText = (await response.text()).trim();
+
       const { data: newMessages } = await supabase
         .from("messages")
         .select("*")
         .eq("interview_id", currentInterview.id)
         .order("created_at", { ascending: true });
 
-      if (newMessages) {
+      if (newMessages && newMessages.some((m) => m.role === "assistant")) {
+        setMessages(newMessages);
+      } else if (openingText) {
+        setMessages([
+          {
+            id: "opening",
+            role: "assistant",
+            content: openingText,
+            created_at: new Date().toISOString(),
+          },
+        ]);
+      } else if (newMessages) {
         setMessages(newMessages);
       }
     } catch (err) {
