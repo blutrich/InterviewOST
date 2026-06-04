@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { OSTCanvas, InterviewSelector } from "@/components/tree";
 import type { Edge } from "@xyflow/react";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,6 @@ interface Opportunity {
   status: "suggested" | "approved" | "rejected" | "merged";
   parent_id: string | null;
   evidence_count: number;
-  metadata?: { frequency_n?: number; frequency_m?: number } | null;
   position: { x: number; y: number };
   evidence?: Array<{
     id: string;
@@ -85,8 +84,9 @@ export function OSTCanvasWrapper({
   const [selectedInterviewIds, setSelectedInterviewIds] = useState<string[]>([]);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [generatingThemes, setGeneratingThemes] = useState(false);
+  const autoThemedRef = useRef(false);
 
-  // Reload opportunities (incl. evidence + metadata) without a full page refresh.
+  // Reload opportunities (incl. evidence) without a full page refresh.
   const refreshOpportunities = useCallback(async () => {
     try {
       const res = await fetch(`/api/opportunities?projectId=${projectId}`);
@@ -96,47 +96,38 @@ export function OSTCanvasWrapper({
     }
   }, [projectId]);
 
-  // Cluster all interviews' opportunities into Themes (top layer of the OST),
-  // then apply them. Themes arrive as `suggested` for the human to curate.
-  const generateThemes = useCallback(async () => {
+  // Regenerate the Theme layer (idempotent server-side) and refresh. Automatic
+  // — no button. Themes are the top layer of the tree beneath the outcome.
+  const regenerateThemes = useCallback(async () => {
     setGeneratingThemes(true);
     try {
-      const suggestRes = await fetch("/api/themes", {
+      const res = await fetch("/api/themes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ projectId }),
       });
-      if (!suggestRes.ok) {
-        const e = await suggestRes.json().catch(() => ({}));
-        toast.error(e.error || "Failed to suggest themes");
-        return;
-      }
-      const { themes } = await suggestRes.json();
-      if (!themes || themes.length === 0) {
-        toast.error("No themes found — add more opportunities first");
-        return;
-      }
-
-      const applyRes = await fetch("/api/themes", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, themes }),
-      });
-      if (!applyRes.ok) {
-        const e = await applyRes.json().catch(() => ({}));
-        toast.error(e.error || "Failed to apply themes");
-        return;
-      }
-      const { themes: created } = await applyRes.json();
-      await refreshOpportunities();
-      toast.success(`Created ${created?.length ?? 0} theme${created?.length === 1 ? "" : "s"}`);
+      if (res.ok) await refreshOpportunities();
+      else console.error("Theme generation failed:", await res.json().catch(() => ({})));
     } catch (error) {
-      console.error("Generate themes error:", error);
-      toast.error("Failed to generate themes");
+      console.error("Theme generation error:", error);
     } finally {
       setGeneratingThemes(false);
     }
   }, [projectId, refreshOpportunities]);
+
+  // Auto-build the Theme layer when the tree has opportunities but no themes yet
+  // (e.g. an existing project, or right after the first interviews are mapped).
+  useEffect(() => {
+    if (autoThemedRef.current) return;
+    const hasThemes = opportunities.some((o) => o.type === "theme");
+    const leafCount = opportunities.filter(
+      (o) => o.type !== "outcome" && o.type !== "theme"
+    ).length;
+    if (!hasThemes && leafCount >= 2) {
+      autoThemedRef.current = true;
+      regenerateThemes();
+    }
+  }, [opportunities, regenerateThemes]);
 
   // Get messages from selected interviews
   const selectedMessages = interviews
@@ -380,24 +371,13 @@ export function OSTCanvasWrapper({
 
   return (
     <div className="relative w-full h-full">
-      {/* Generate Themes — cluster all interviews into the OST top layer */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
-        <Button
-          onClick={generateThemes}
-          disabled={generatingThemes}
-          className="h-9 px-4 bg-rose-600 hover:bg-rose-700 text-white text-[11px] uppercase tracking-wider font-medium rounded-full shadow-md flex items-center gap-2"
-          title="Cluster all interviews' opportunities into evidence-grounded Themes"
-        >
-          {generatingThemes ? (
-            <>
-              <span className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-              Clustering interviews…
-            </>
-          ) : (
-            "Generate Themes"
-          )}
-        </Button>
-      </div>
+      {/* Auto theme generation indicator (no manual trigger) */}
+      {generatingThemes && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-md border border-rose-200 text-[11px] uppercase tracking-wider text-rose-600">
+          <span className="w-3 h-3 border-2 border-rose-200 border-t-rose-600 rounded-full animate-spin" />
+          Finding themes…
+        </div>
+      )}
 
       {/* Interview Selector Sidebar */}
       {interviews.length > 0 && (

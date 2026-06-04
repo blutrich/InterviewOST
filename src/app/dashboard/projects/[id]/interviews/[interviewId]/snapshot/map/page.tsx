@@ -288,6 +288,19 @@ export default function MappingPage() {
       }
 
       toast.success(`Saved ${toSave.length} opportunities to OST`);
+
+      // Automatically (re)build the Theme layer now that new opportunities exist.
+      // Themes are the top layer of the tree; this needs no manual trigger.
+      try {
+        await fetch("/api/themes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ projectId }),
+        });
+      } catch (themeError) {
+        console.error("Theme regeneration failed (non-blocking):", themeError);
+      }
+
       router.push(`/dashboard/projects/${projectId}/tree`);
     } catch (error) {
       console.error("Save error:", error);

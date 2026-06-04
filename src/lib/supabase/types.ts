@@ -221,7 +221,6 @@ export interface Database {
           evidence_count: number;
           status: string;
           position: Json;
-          metadata: Json | null;
           created_at: string;
         };
         Insert: {
@@ -234,7 +233,6 @@ export interface Database {
           evidence_count?: number;
           status?: string;
           position?: Json;
-          metadata?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -247,7 +245,6 @@ export interface Database {
           evidence_count?: number;
           status?: string;
           position?: Json;
-          metadata?: Json | null;
           created_at?: string;
         };
       };

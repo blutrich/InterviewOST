@@ -10,46 +10,28 @@ import {
 } from "@/lib/rate-limit";
 
 // ============================================================================
-// /api/themes
+// POST /api/themes  — regenerate the OST top layer
 //
-// Themes are the top layer of the Opportunity Solution Tree. They are generated
-// by clustering ALL of a project's leaf opportunities (cross-interview), and
-// each one is a finding grounded in verbatim quotes, with a frequency derived
-// from how many distinct interviews support it.
+// Themes are the top layer of the Opportunity Solution Tree: cross-interview
+// FINDINGS (a claim grounded in verbatim quotes), not generic topic nouns.
+// This endpoint is idempotent and fully automatic — it is called whenever new
+// interview data lands (after mapping) or when a tree has opportunities but no
+// themes yet. There is no manual button.
 //
-//   POST  -> suggest themes (Themer agent). Returns suggestions; no DB write.
-//   PUT   -> apply approved themes: create `type='theme'` nodes under the
-//            outcome, re-parent the member leaf opportunities, attach the
-//            representative quotes as evidence, and store frequency in metadata.
-//            Themes are created as `suggested` so the human curates on canvas.
+// It (1) clears existing theme nodes (re-parenting their children back to the
+// outcome), (2) clusters all leaf opportunities via the Themer agent, and
+// (3) creates fresh theme nodes, re-parents the member opportunities under
+// them, and attaches representative quotes as evidence.
+//
+// Frequency ("N of M interviews") is NOT stored — it is computed at render
+// time from each theme's descendants' evidence, so it is always current and
+// needs no schema change.
 // ============================================================================
 
-const suggestSchema = z.object({
+const regenerateSchema = z.object({
   projectId: z.string().uuid("Invalid project ID"),
 });
 
-const applySchema = z.object({
-  projectId: z.string().uuid("Invalid project ID"),
-  themes: z
-    .array(
-      z.object({
-        finding: z.string().min(1, "Finding is required").max(500, "Finding too long"),
-        description: z.string().max(2000).nullable().optional(),
-        member_opportunity_ids: z.array(z.string()).default([]),
-        representative_quotes: z
-          .array(
-            z.object({
-              quote: z.string().min(1).max(2000),
-              interview_id: z.string().nullable().optional(),
-            })
-          )
-          .default([]),
-      })
-    )
-    .min(1, "At least one theme is required"),
-});
-
-// Shape the Themer agent must return.
 const themeSuggestionsSchema = z.object({
   themes: z.array(
     z.object({
@@ -70,9 +52,6 @@ const themeSuggestionsSchema = z.object({
 
 const LEAF_EXCLUDED_TYPES = ["outcome", "theme"];
 
-// ---------------------------------------------------------------------------
-// POST: suggest themes from the project's leaf opportunities
-// ---------------------------------------------------------------------------
 export async function POST(req: Request) {
   try {
     const { user, error: authError } = await getAuthenticatedUser();
@@ -85,7 +64,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const validated = suggestSchema.safeParse(body);
+    const validated = regenerateSchema.safeParse(body);
     if (!validated.success) {
       return NextResponse.json(
         { error: validated.error.errors[0]?.message || "Invalid input" },
@@ -107,11 +86,10 @@ export async function POST(req: Request) {
       .eq("id", projectId)
       .single();
 
-    // Leaf opportunities (everything except the outcome and existing themes),
-    // with their supporting quotes + source interview.
+    // All opportunities for the project, with their quotes + source interview.
     const { data: opportunities, error: oppError } = await supabase
       .from("opportunities")
-      .select("id, title, description, type, evidence(quote, interview_id)")
+      .select("id, title, description, type, parent_id, evidence(quote, interview_id)")
       .eq("project_id", projectId);
 
     if (oppError) {
@@ -119,17 +97,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Failed to fetch opportunities" }, { status: 500 });
     }
 
-    const leaves = (opportunities || []).filter(
-      (o: { type: string }) => !LEAF_EXCLUDED_TYPES.includes(o.type)
-    );
+    const all = opportunities || [];
+    const outcomeRow = all.find((o: { type: string }) => o.type === "outcome");
+    const outcomeId = outcomeRow?.id ?? null;
+    const existingThemes = all.filter((o: { type: string }) => o.type === "theme");
+    const leaves = all.filter((o: { type: string }) => !LEAF_EXCLUDED_TYPES.includes(o.type));
 
+    // Not enough to cluster — leave the tree as-is (don't error; this is auto-called).
     if (leaves.length < 2) {
-      return NextResponse.json(
-        { error: "Need at least 2 opportunities to cluster into themes" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: true, themesCreated: 0, skipped: "not enough opportunities" });
     }
 
+    // --- Cluster the leaves into findings ---
+    const leafIds = new Set(leaves.map((o: { id: string }) => o.id));
     const leavesContext = leaves
       .map((o: {
         id: string;
@@ -179,102 +159,25 @@ Return ONLY the JSON object described in your instructions (themes[] with findin
       return NextResponse.json({ error: "Failed to parse theme suggestions" }, { status: 500 });
     }
 
-    // Keep only ids that actually exist as leaf opportunities.
-    const leafIds = new Set(leaves.map((o: { id: string }) => o.id));
-    const cleanedThemes = suggestions.themes.map((t) => ({
-      ...t,
-      member_opportunity_ids: t.member_opportunity_ids.filter((id) => leafIds.has(id)),
-    }));
-
-    return NextResponse.json({ success: true, projectId, themes: cleanedThemes });
-  } catch (error) {
-    console.error("Themes suggest error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-
-// ---------------------------------------------------------------------------
-// PUT: apply approved themes to the tree
-// ---------------------------------------------------------------------------
-export async function PUT(req: Request) {
-  try {
-    const { user, error: authError } = await getAuthenticatedUser();
-    if (authError) return authError;
-
-    const body = await req.json();
-    const validated = applySchema.safeParse(body);
-    if (!validated.success) {
-      return NextResponse.json(
-        { error: validated.error.errors[0]?.message || "Invalid input" },
-        { status: 400 }
-      );
-    }
-    const { projectId, themes } = validated.data;
-
-    const { authorized, error: ownershipError } = await verifyProjectOwnership(projectId, user!.id);
-    if (!authorized) {
-      return NextResponse.json({ error: ownershipError }, { status: 403 });
+    // --- Idempotent reset: detach children of old themes, then delete old themes ---
+    if (existingThemes.length > 0) {
+      const oldThemeIds = existingThemes.map((t: { id: string }) => t.id);
+      // Re-parent any children of old themes back to the outcome (FK is RESTRICT).
+      await supabase
+        .from("opportunities")
+        .update({ parent_id: outcomeId })
+        .in("parent_id", oldThemeIds);
+      // Delete the old theme nodes (their evidence cascades).
+      await supabase.from("opportunities").delete().in("id", oldThemeIds);
     }
 
-    const supabase = await createClient();
-
-    // Outcome row to parent themes under (null => virtual root handles it).
-    const { data: outcomeRow } = await supabase
-      .from("opportunities")
-      .select("id")
-      .eq("project_id", projectId)
-      .eq("type", "outcome")
-      .maybeSingle();
-    const outcomeId = outcomeRow?.id ?? null;
-
-    // All opportunities + their interview-tagged evidence, to compute frequency.
-    const { data: allOpps } = await supabase
-      .from("opportunities")
-      .select("id, type, evidence(interview_id)")
-      .eq("project_id", projectId);
-
-    const evidenceByOpp = new Map<string, Set<string>>();
-    const allInterviewIds = new Set<string>();
-    (allOpps || []).forEach((o: { id: string; evidence?: Array<{ interview_id: string | null }> }) => {
-      const set = new Set<string>();
-      (o.evidence || []).forEach((e) => {
-        if (e.interview_id) {
-          set.add(e.interview_id);
-          allInterviewIds.add(e.interview_id);
-        }
-      });
-      evidenceByOpp.set(o.id, set);
-    });
-    const leafIds = new Set(
-      (allOpps || [])
-        .filter((o: { type: string }) => !LEAF_EXCLUDED_TYPES.includes(o.type))
-        .map((o: { id: string }) => o.id)
-    );
-    const frequencyM = allInterviewIds.size;
-
-    // Valid interview ids (so we never insert evidence with a bad FK).
-    const { data: interviewRows } = await supabase
-      .from("interviews")
-      .select("id")
-      .eq("project_id", projectId);
-    const validInterviewIds = new Set((interviewRows || []).map((i: { id: string }) => i.id));
-
-    const createdThemes = [];
-
-    for (let t = 0; t < themes.length; t++) {
-      const theme = themes[t];
+    // --- Create the fresh theme layer ---
+    let themesCreated = 0;
+    for (let t = 0; t < suggestions.themes.length; t++) {
+      const theme = suggestions.themes[t];
       const memberIds = theme.member_opportunity_ids.filter((id) => leafIds.has(id));
-
-      // frequency_n = distinct interviews across this theme's members.
-      const interviewsForTheme = new Set<string>();
-      memberIds.forEach((id) => {
-        (evidenceByOpp.get(id) || new Set<string>()).forEach((iv) => interviewsForTheme.add(iv));
-      });
-      const frequencyN = interviewsForTheme.size;
-
       const themeX = 120 + t * 340;
 
-      // 1) Create the theme node.
       const { data: themeRow, error: themeError } = await supabase
         .from("opportunities")
         .insert({
@@ -283,9 +186,8 @@ export async function PUT(req: Request) {
           title: theme.finding,
           description: theme.description ?? null,
           type: "theme",
-          status: "suggested",
+          status: "approved",
           position: { x: themeX, y: 220 },
-          metadata: { frequency_n: frequencyN, frequency_m: frequencyM },
         })
         .select()
         .single();
@@ -294,45 +196,36 @@ export async function PUT(req: Request) {
         console.error("Failed to create theme:", themeError);
         continue;
       }
+      themesCreated++;
 
-      // 2) Re-parent member leaf opportunities under the theme.
+      // Re-parent member leaf opportunities under the theme.
       for (let i = 0; i < memberIds.length; i++) {
         await supabase
           .from("opportunities")
-          .update({
-            parent_id: themeRow.id,
-            position: { x: themeX + i * 30, y: 440 + i * 120 },
-          })
+          .update({ parent_id: themeRow.id, position: { x: themeX + i * 30, y: 440 + i * 120 } })
           .eq("id", memberIds[i])
           .eq("project_id", projectId);
       }
 
-      // 3) Attach representative quotes as evidence on the theme.
+      // Attach representative quotes as evidence (interview_id left null — these
+      // are theme-level illustrations; the frequency comes from the children).
       const evidenceRows = (theme.representative_quotes || [])
+        .filter((q) => q.quote)
         .map((q) => ({
           opportunity_id: themeRow.id,
-          interview_id: q.interview_id && validInterviewIds.has(q.interview_id) ? q.interview_id : null,
+          interview_id: null,
           snapshot_id: null,
           quote: q.quote,
-        }))
-        .filter((r) => r.quote);
+        }));
       if (evidenceRows.length > 0) {
         const { error: evError } = await supabase.from("evidence").insert(evidenceRows);
         if (evError) console.error("Failed to insert theme evidence:", evError);
       }
-
-      createdThemes.push({
-        id: themeRow.id,
-        finding: theme.finding,
-        frequency_n: frequencyN,
-        frequency_m: frequencyM,
-        member_count: memberIds.length,
-      });
     }
 
-    return NextResponse.json({ success: true, themes: createdThemes });
+    return NextResponse.json({ success: true, themesCreated });
   } catch (error) {
-    console.error("Themes apply error:", error);
+    console.error("Themes regenerate error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
