@@ -16,7 +16,7 @@
  *   - avatarConfig.ts   : persona/voice/avatar defaults + CUSTOMER_CLIENT_V1.
  */
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Keyboard, Mic } from "lucide-react";
 import { useAnamSession, type SessionStatus } from "./useAnamSession";
 import { useBrainTurn } from "./useBrainTurn";
@@ -68,7 +68,11 @@ export default function VirtualInterviewer({
   // are populated after both hooks have run (during render, which React
   // explicitly permits).
   const runTurnRef = useRef<((text: string) => Promise<void> | void) | null>(null);
-  const speakOpeningHandlerRef = useRef<(() => void) | null>(null);
+  // The avatar can become ready BEFORE the opening line has been fetched
+  // (Anam connect vs LLM race). Track readiness as state and speak the opening
+  // from an effect once BOTH are available, so order never matters.
+  const [avatarReady, setAvatarReady] = useState(false);
+  const openingSpokenRef = useRef(false);
 
   const session = useAnamSession({
     token,
@@ -77,7 +81,7 @@ export default function VirtualInterviewer({
       runTurnRef.current?.(text);
     }, []),
     onAvatarReady: useCallback(() => {
-      speakOpeningHandlerRef.current?.();
+      setAvatarReady(true);
     }, []),
   });
 
@@ -92,16 +96,24 @@ export default function VirtualInterviewer({
     onComplete,
   });
 
-  // Populate the refs so the late-bound callbacks above have a target.
+  // Populate the ref so the late-bound callback above has a target.
   // Safe per React docs: refs may be written during render.
   runTurnRef.current = brain.runTurn;
-  speakOpeningHandlerRef.current = () => {
+
+  // Speak the agent's opening line as soon as the avatar is ready AND the
+  // opening text has arrived — whichever happens last. Guarded to fire once.
+  useEffect(() => {
+    if (!avatarReady || openingSpokenRef.current) return;
     if (openingMessage?.trim()) {
+      openingSpokenRef.current = true;
       void brain.speakOpening(openingMessage).then(() => session.setStatus("listening"));
     } else {
+      // Ready but opening not here yet — let the participant talk meanwhile;
+      // when the opening arrives this effect re-runs and speaks it.
       session.setStatus("listening");
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [avatarReady, openingMessage]);
 
   const retry = useCallback(() => {
     session.reset();
