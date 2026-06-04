@@ -21,8 +21,8 @@ const createUpdateOpportunitySchema = z.object({
   parentId: z.string().uuid("Invalid parent ID").nullable().optional(),
   title: z.string().min(1, "Title is required").max(200, "Title too long"),
   description: z.string().max(2000, "Description too long").optional(),
-  type: z.enum(["opportunity", "pain_point", "unmet_need", "workaround"]).optional(),
-  status: z.enum(["suggested", "approved", "rejected", "archived"]).optional(),
+  type: z.enum(["theme", "opportunity", "pain_point", "unmet_need", "workaround", "outcome", "solution"]).optional(),
+  status: z.enum(["suggested", "approved", "rejected", "archived", "merged"]).optional(),
   position: z.object({
     x: z.number(),
     y: z.number(),

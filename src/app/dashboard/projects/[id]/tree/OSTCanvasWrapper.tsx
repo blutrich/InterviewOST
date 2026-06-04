@@ -27,10 +27,11 @@ interface Opportunity {
   id: string;
   title: string;
   description?: string;
-  type: "outcome" | "opportunity" | "solution" | "unmet_need" | "workaround";
+  type: "outcome" | "theme" | "opportunity" | "solution" | "unmet_need" | "workaround";
   status: "suggested" | "approved" | "rejected" | "merged";
   parent_id: string | null;
   evidence_count: number;
+  metadata?: { frequency_n?: number; frequency_m?: number } | null;
   position: { x: number; y: number };
   evidence?: Array<{
     id: string;
@@ -83,6 +84,59 @@ export function OSTCanvasWrapper({
   const [saving, setSaving] = useState(false);
   const [selectedInterviewIds, setSelectedInterviewIds] = useState<string[]>([]);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
+  const [generatingThemes, setGeneratingThemes] = useState(false);
+
+  // Reload opportunities (incl. evidence + metadata) without a full page refresh.
+  const refreshOpportunities = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/opportunities?projectId=${projectId}`);
+      if (res.ok) setOpportunities(await res.json());
+    } catch (error) {
+      console.error("Failed to refresh opportunities:", error);
+    }
+  }, [projectId]);
+
+  // Cluster all interviews' opportunities into Themes (top layer of the OST),
+  // then apply them. Themes arrive as `suggested` for the human to curate.
+  const generateThemes = useCallback(async () => {
+    setGeneratingThemes(true);
+    try {
+      const suggestRes = await fetch("/api/themes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      if (!suggestRes.ok) {
+        const e = await suggestRes.json().catch(() => ({}));
+        toast.error(e.error || "Failed to suggest themes");
+        return;
+      }
+      const { themes } = await suggestRes.json();
+      if (!themes || themes.length === 0) {
+        toast.error("No themes found — add more opportunities first");
+        return;
+      }
+
+      const applyRes = await fetch("/api/themes", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, themes }),
+      });
+      if (!applyRes.ok) {
+        const e = await applyRes.json().catch(() => ({}));
+        toast.error(e.error || "Failed to apply themes");
+        return;
+      }
+      const { themes: created } = await applyRes.json();
+      await refreshOpportunities();
+      toast.success(`Created ${created?.length ?? 0} theme${created?.length === 1 ? "" : "s"}`);
+    } catch (error) {
+      console.error("Generate themes error:", error);
+      toast.error("Failed to generate themes");
+    } finally {
+      setGeneratingThemes(false);
+    }
+  }, [projectId, refreshOpportunities]);
 
   // Get messages from selected interviews
   const selectedMessages = interviews
@@ -319,12 +373,32 @@ export function OSTCanvasWrapper({
 
   const legendItems = [
     { type: "outcome", label: "Outcome", color: "border-purple-500", description: "Business goal - how the company creates value" },
+    { type: "theme", label: "Theme", color: "border-rose-500", description: "Cross-interview finding - the top layer that groups opportunities (shows N of M interviews)" },
     { type: "opportunity", label: "Opportunity", color: "border-amber-500", description: "Customer need, pain point, or desire" },
     { type: "solution", label: "Solution", color: "border-green-500", description: "Product, feature, or intervention" },
   ];
 
   return (
     <div className="relative w-full h-full">
+      {/* Generate Themes — cluster all interviews into the OST top layer */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+        <Button
+          onClick={generateThemes}
+          disabled={generatingThemes}
+          className="h-9 px-4 bg-rose-600 hover:bg-rose-700 text-white text-[11px] uppercase tracking-wider font-medium rounded-full shadow-md flex items-center gap-2"
+          title="Cluster all interviews' opportunities into evidence-grounded Themes"
+        >
+          {generatingThemes ? (
+            <>
+              <span className="w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+              Clustering interviews…
+            </>
+          ) : (
+            "Generate Themes"
+          )}
+        </Button>
+      </div>
+
       {/* Interview Selector Sidebar */}
       {interviews.length > 0 && (
         <div className="absolute top-4 left-4 z-10 w-64">
