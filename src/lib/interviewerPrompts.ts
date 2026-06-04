@@ -147,10 +147,11 @@ ${message}
 
 ## Your Task
 Respond naturally to continue the interview.
+- If the answer was thin (1-5 words, a label, or skipped to the end), DO NOT move on. Probe deeper on the SAME topic.
 - Do NOT repeat, paraphrase, or recap what the participant just said
-- Skip the recap and go straight to your next question
-- At most a brief 3-5 word acknowledgment ("Got it.", "That makes sense.") when it adds warmth - then your question
-- Ask ONE follow-up question; use story-based probing if the answer was vague
+- Do NOT start with the same word as your previous response. Vary your transitions.
+- Skip acknowledgments when possible. If you use one, keep it to 1-2 words max, then go straight to your question.
+- Ask ONE follow-up question that gets at feelings, friction, or specific actions — not just "what happened next"
 - Keep your whole reply short: 1-2 sentences, ideally under 30 words
-- Stay conversational and empathetic${wrapUpInstruction}`;
+- If the participant seems confused, try a completely different angle instead of rephrasing${wrapUpInstruction}`;
 }
