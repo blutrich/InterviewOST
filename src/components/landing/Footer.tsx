@@ -12,7 +12,7 @@ export function Footer() {
             </div>
             <div>
               <span className="text-landing-charcoal font-medium tracking-tight text-sm">
-                Base44
+                AI
               </span>
               <span className="text-landing-stone font-light tracking-tight text-sm ml-1">
                 Interviewer
