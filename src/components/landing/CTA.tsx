@@ -25,7 +25,7 @@ export function CTA() {
             </h2>
 
             <p className="text-lg text-white/60 leading-relaxed max-w-lg">
-              Base44 Interviewer brings Teresa Torres&apos; Continuous Discovery methodology
+              AI Interviewer brings Teresa Torres&apos; Continuous Discovery methodology
               to life. Every interview, every insight, every opportunity—structured,
               connected, and ready to drive your next decision.
             </p>

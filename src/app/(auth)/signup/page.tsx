@@ -93,7 +93,7 @@ export default function SignupPage() {
             <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
               <span className="text-white font-serif text-xl font-medium">D</span>
             </div>
-            <span className="text-white font-medium tracking-tight">Base44 Interviewer</span>
+            <span className="text-white font-medium tracking-tight">AI Interviewer</span>
           </Link>
 
           {/* Value prop */}
@@ -133,7 +133,7 @@ export default function SignupPage() {
             <div className="w-10 h-10 rounded-lg bg-landing-forest flex items-center justify-center">
               <span className="text-white font-serif text-xl font-medium">D</span>
             </div>
-            <span className="text-landing-charcoal font-medium tracking-tight">Base44 Interviewer</span>
+            <span className="text-landing-charcoal font-medium tracking-tight">AI Interviewer</span>
           </Link>
 
           <div className="space-y-2 mb-10">

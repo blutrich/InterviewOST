@@ -155,7 +155,7 @@ export default function DocsLayout({
                 <div className="w-7 h-7 rounded-lg bg-landing-forest flex items-center justify-center">
                   <span className="text-white font-serif text-sm font-medium">D</span>
                 </div>
-                <span className="text-sm font-medium text-gray-900">Base44 Interviewer</span>
+                <span className="text-sm font-medium text-gray-900">AI Interviewer</span>
               </Link>
               <button 
                 onClick={() => setNavOpen(false)}
@@ -247,7 +247,7 @@ export default function DocsLayout({
                   Dashboard
                 </Link>
               </div>
-              <span className="text-xs text-gray-400">Base44 Interviewer</span>
+              <span className="text-xs text-gray-400">AI Interviewer</span>
             </div>
           </footer>
         </main>

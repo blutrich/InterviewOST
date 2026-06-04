@@ -6,7 +6,7 @@ export default function DocsPage() {
       {/* Hero */}
       <header className="text-center space-y-4 py-8">
         <h1 className="text-3xl font-serif font-medium text-gray-900">
-          Base44 Interviewer Docs
+          AI Interviewer Docs
         </h1>
         <p className="text-lg text-gray-600 max-w-xl mx-auto">
           AI-powered customer interviews following Teresa Torres&apos; Continuous Discovery methodology.
