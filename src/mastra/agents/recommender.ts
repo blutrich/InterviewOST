@@ -95,5 +95,6 @@ Return ONLY a JSON object with this exact shape (no markdown fences, no commenta
 6. **Use the product context.** If the project mentions a specific audience, name them in the rationale. If it mentions a desired outcome, tie the rec back to it.
 7. **Honest about uncertainty.** If evidence is thin for a tier (especially moonshot/standalone), say so in the rationale.
 8. **No solutionizing without a problem.** Every rec must trace back to a user pain, need, or workaround surfaced in the evidence.`,
-  model: openrouter(models.default),
+  // Opus 4.8 for richer, more strategic recommendations.
+  model: openrouter("anthropic/claude-opus-4.8"),
 });

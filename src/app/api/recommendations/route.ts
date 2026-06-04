@@ -298,7 +298,11 @@ Return ONLY a JSON object with the exact shape specified in your system instruct
     const recommender = mastra.getAgent("recommenderAgent");
     let response;
     try {
-      response = await recommender.generate(prompt);
+      // Creative temperature for more inventive recommendations (bold / moonshot
+      // tiers benefit from higher randomness). Note: Claude clamps to its max of 1.0.
+      response = await recommender.generate(prompt, {
+        modelSettings: { temperature: 1.1 },
+      });
     } catch (agentErr) {
       console.error(`${LOG} POST agent.generate threw`, agentErr);
       return NextResponse.json(
