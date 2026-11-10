@@ -1,5 +1,6 @@
 import { createClient, getAuthenticatedUser, verifyProjectOwnership } from "@/lib/supabase/server";
 import { mastra } from "@/mastra";
+import { interviewSnapshotSchema } from "@/mastra/schemas";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import {
@@ -18,39 +19,6 @@ const updateSnapshotSchema = z.object({
   snapshotId: z.string().uuid("Invalid snapshot ID"),
   status: z.enum(["approved", "rejected", "pending"]),
   human_notes: z.string().max(5000, "Notes too long").optional(),
-});
-
-// Zod schema for Interview Snapshot (Teresa Torres format)
-const interviewSnapshotSchema = z.object({
-  experience_map: z.array(
-    z.object({
-      step: z.number(),
-      action: z.string(),
-      feeling: z.string(),
-      timestamp: z.string().optional(),
-    })
-  ),
-  quote_reel: z.array(
-    z.object({
-      quote: z.string(),
-      context: z.string(),
-      emotion: z.string(),
-    })
-  ),
-  facts: z.object({
-    role: z.string().optional(),
-    tools: z.array(z.string()).optional(),
-    frequency: z.string().optional(),
-    context: z.string().optional(),
-    other: z.record(z.any()).optional(),
-  }),
-  blind_spots: z.array(
-    z.object({
-      observation: z.string(),
-      suggestion: z.string(),
-      severity: z.enum(["low", "medium", "high"]),
-    })
-  ),
 });
 
 export async function POST(req: Request) {
@@ -146,7 +114,7 @@ ${interview.participant_name || "Anonymous"}
 Generate the Interview Snapshot JSON with experience_map, quote_reel, facts, and blind_spots.`;
 
     const response = await synthesizer.generate(prompt, {
-      output: interviewSnapshotSchema,
+      structuredOutput: { schema: interviewSnapshotSchema },
     });
 
     const snapshot = response.object;

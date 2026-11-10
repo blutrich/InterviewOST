@@ -8,7 +8,7 @@ AI-powered interview platform using Teresa Torres' Continuous Discovery methodol
 
 | Component | Description |
 |-----------|-------------|
-| **Next.js 15 Setup** | TypeScript, Tailwind, shadcn/ui |
+| **Next.js 16 Setup** | TypeScript, Tailwind, shadcn/ui |
 | **Supabase Schema** | All tables: projects, templates, interviews, messages, snapshots, opportunities, evidence |
 | **Auth Flow** | Login, signup, callback, middleware |
 | **Mastra Agents** | Project Generator, Planner, Interviewer, Synthesizer, Mapper (5 agents) |
@@ -38,8 +38,8 @@ AI-powered interview platform using Teresa Torres' Continuous Discovery methodol
 
 | Task | Priority | Description |
 |------|----------|-------------|
-| **End-to-End Test** | HIGH | Test full flow: create project → interview → snapshot → OST |
-| **Fix DATABASE_URL** | LOW | Update `.env.local` with actual PostgreSQL password |
+| **Apply migration 010** | HIGH | `010_close_public_interview_access.sql` — apply after this version is deployed, then flip the `it.fails` RLS test in `tests/smoke/rls-isolation.test.ts` to `it` |
+| **Tests in CI** | MEDIUM | CI runs model check, typecheck, lint, build. Smoke + e2e need Supabase/OpenRouter secrets and run locally for now |
 
 ---
 
@@ -223,7 +223,19 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 npm run dev
 
 # Type check
-npx tsc --noEmit
+npm run typecheck
+
+# Lint
+npm run lint
+
+# Verify the configured model IDs still exist on OpenRouter
+npm run check:models
+
+# Smoke tests (RLS + API isolation; needs the dev server and .env.local)
+SMOKE_BASE_URL=http://localhost:3000 npm run test:smoke
+
+# End-to-end tests (Playwright; core-flow makes real agent calls, ~90s)
+npm run test:e2e
 
 # Build
 npm run build
@@ -344,9 +356,22 @@ Core flow is correct. Main gaps are experimentation layer and cross-interview in
 
 ---
 
-## Quick Fixes Needed
+## How the AI layer works
 
-1. **Fix DATABASE_URL** in `.env.local` - Replace `[YOUR-PASSWORD]` with your actual Supabase database password
+- **Mastra 1.x**, used only for `Agent.generate()` / `.stream()`. No Mastra storage,
+  memory, workflows or tools: conversation state lives in the Supabase `messages`
+  table and is passed in as prompt context each turn. `DATABASE_URL` is not needed.
+- **Models** are set in `/src/lib/openrouter.ts` and resolved by Mastra's model
+  router (`openrouter/<id>`, reads `OPENROUTER_API_KEY`).
+- **Structured output**: planner, synthesizer, mapper and project generator return
+  objects validated against the Zod schemas in `/src/mastra/schemas.ts`.
+- **Interview chat** (`/api/chat`) streams the interviewer's reply. Prompt text is in
+  `/src/lib/interviewerPrompts.ts`; `/src/lib/interviewStream.ts` strips internal
+  annotations and the `[INTERVIEW_COMPLETE]` marker from the stream.
+- **Participant page** (`/i/[token]`) never queries Supabase from the browser. It uses
+  `/api/interviews/session` and `/api/chat`, which validate the access token server-side.
+- The pre-revert hackathon build (avatar, Base44 theme, themes, recommendations) is
+  preserved at git tag `hackathon-2026-06`.
 
 ---
 

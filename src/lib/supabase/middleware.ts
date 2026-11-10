@@ -50,6 +50,7 @@ export async function updateSession(request: NextRequest) {
   // Public API routes (token-based auth, not session-based)
   const isPublicApiRoute =
     request.nextUrl.pathname === "/api/chat" ||
+    request.nextUrl.pathname === "/api/interviews/session" ||
     request.nextUrl.pathname === "/api/interviews/join";
 
   // Allow public routes (removed isApiRoute - API routes now require auth)

@@ -1,5 +1,6 @@
 import { createClient, getAuthenticatedUser, verifyProjectOwnership } from "@/lib/supabase/server";
 import { mastra } from "@/mastra";
+import { opportunitySuggestionsSchema } from "@/mastra/schemas";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import {
@@ -35,36 +36,6 @@ const addEvidenceSchema = z.object({
   interviewId: z.string().uuid("Invalid interview ID").optional(),
   quote: z.string().min(1, "Quote is required").max(2000, "Quote too long"),
   context: z.string().max(1000, "Context too long").optional(),
-});
-
-// Schema for opportunity suggestions from mapper agent
-const opportunitySuggestionsSchema = z.object({
-  opportunities: z.array(
-    z.object({
-      title: z.string(),
-      description: z.string(),
-      type: z.enum(["opportunity", "pain_point", "unmet_need", "workaround"]),
-      evidence_quote: z.string(),
-      confidence: z.enum(["high", "medium", "low"]),
-    })
-  ),
-  parent_suggestions: z.array(
-    z.object({
-      opportunity_title: z.string(),
-      suggested_parent_title: z.string().nullable(),
-      reasoning: z.string(),
-      alternative_parents: z.array(z.string()).optional(),
-    })
-  ),
-  potential_duplicates: z.array(
-    z.object({
-      new_opportunity: z.string(),
-      potential_duplicate: z.string(),
-      similarity_score: z.enum(["high", "medium", "low"]),
-      recommendation: z.enum(["merge", "keep_separate", "review"]),
-      reasoning: z.string(),
-    })
-  ),
 });
 
 // POST: Generate opportunity suggestions from a snapshot
@@ -204,20 +175,14 @@ IMPORTANT: Return ONLY a valid JSON object with this exact structure (no markdow
   "potential_duplicates": []
 }`;
 
-    const response = await mapper.generate(prompt);
-
-    // Parse the JSON response manually
     let suggestions;
     try {
-      const text = response.text;
-      // Remove any markdown code blocks if present
-      const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
-      const jsonStr = jsonMatch[1] || text;
-      const parsed = JSON.parse(jsonStr.trim());
-      suggestions = opportunitySuggestionsSchema.parse(parsed);
-    } catch (parseError) {
-      console.error("Failed to parse mapper response:", parseError);
-      console.error("Raw response:", response.text);
+      const response = await mapper.generate(prompt, {
+        structuredOutput: { schema: opportunitySuggestionsSchema },
+      });
+      suggestions = response.object;
+    } catch (agentError) {
+      console.error("Mapper failed to produce valid suggestions:", agentError);
       return NextResponse.json({ error: "Failed to parse opportunity suggestions" }, { status: 500 });
     }
 

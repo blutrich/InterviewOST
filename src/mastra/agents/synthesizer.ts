@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { openrouter, models } from "@/lib/openrouter";
+import { modelFor } from "@/lib/openrouter";
 
 /**
  * Synthesizer Agent
@@ -8,6 +8,7 @@ import { openrouter, models } from "@/lib/openrouter";
  * This is the "15-minute workflow" - process immediately, never pile up data.
  */
 export const synthesizerAgent = new Agent({
+  id: "synthesizer-agent",
   name: "interview-synthesizer",
   description: "Creates structured Interview Snapshots from transcripts using Teresa Torres methodology",
   instructions: `You create Interview Snapshots from interview transcripts.
@@ -116,5 +117,5 @@ Return a single JSON object:
 - Comparisons to alternatives
 - Strong emotional language
 - Hesitations or contradictions`,
-  model: openrouter(models.default),
+  model: modelFor("default"),
 });

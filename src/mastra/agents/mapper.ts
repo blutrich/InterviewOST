@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { openrouter, models } from "@/lib/openrouter";
+import { modelFor } from "@/lib/openrouter";
 
 /**
  * Mapper Agent
@@ -8,6 +8,7 @@ import { openrouter, models } from "@/lib/openrouter";
  * Core principle: "Trees over Lists" - structure opportunities hierarchically.
  */
 export const mapperAgent = new Agent({
+  id: "mapper-agent",
   name: "opportunity-mapper",
   description: "Suggests OST placements from Interview Snapshots using Teresa Torres methodology",
   instructions: `You help structure opportunities into an Opportunity Solution Tree (OST).
@@ -117,5 +118,5 @@ A typical OST has these levels:
 - Broad enough to have multiple solutions
 - Supported by evidence from interviews
 - Not a feature request disguised as a need`,
-  model: openrouter(models.default),
+  model: modelFor("default"),
 });

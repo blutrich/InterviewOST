@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 interface Message {
   id: string;
@@ -13,16 +12,20 @@ interface Message {
 
 interface Interview {
   id: string;
-  project_id: string;
-  template_id: string;
   status: string;
   participant_name: string | null;
 }
 
+interface InterviewSession {
+  interview: Interview;
+  messages: Message[];
+}
+
+const STREAMING_ID_PREFIX = "temp-assistant-";
+
 export default function PublicInterviewPage() {
   const params = useParams();
   const token = params.token as string;
-  const supabase = createClient();
 
   const [interview, setInterview] = useState<Interview | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -37,38 +40,76 @@ export default function PublicInterviewPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Interview state + transcript, validated server-side by the access token
+  const fetchSession = useCallback(async (): Promise<InterviewSession | null> => {
+    const response = await fetch(`/api/interviews/session?token=${encodeURIComponent(token)}`);
+    if (!response.ok) return null;
+    return response.json();
+  }, [token]);
+
+  // Send a turn to the interviewer and render the reply as it streams in
+  const streamReply = useCallback(
+    async (body: { interviewId: string; message: string; isStart?: boolean; participantName?: string }) => {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...body, token }),
+      });
+
+      if (!response.ok || !response.body) {
+        throw new Error("Chat request failed");
+      }
+
+      const streamingId = `${STREAMING_ID_PREFIX}${Date.now()}`;
+      const createdAt = new Date().toISOString();
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let text = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        text += decoder.decode(value, { stream: true });
+        if (!text) continue;
+        const partial: Message = { id: streamingId, role: "assistant", content: text, created_at: createdAt };
+        setMessages((prev) =>
+          prev.some((m) => m.id === streamingId)
+            ? prev.map((m) => (m.id === streamingId ? partial : m))
+            : [...prev, partial]
+        );
+      }
+
+      // The stream closes after the reply is saved; swap in the stored transcript
+      const session = await fetchSession();
+      if (session) {
+        setMessages(session.messages);
+        setInterview(session.interview);
+      }
+    },
+    [token, fetchSession]
+  );
+
   // Fetch interview by token
   useEffect(() => {
-    async function fetchInterview() {
-      const { data, error } = await supabase
-        .from("interviews")
-        .select("*")
-        .eq("access_token", token)
-        .single();
+    async function loadInterview() {
+      const session = await fetchSession();
 
-      if (error || !data) {
+      if (!session) {
         setError("Interview not found or has expired");
         setLoading(false);
         return;
       }
 
+      const data = session.interview;
+      setInterview(data);
+      setParticipantName(data.participant_name || "");
+      setMessages(session.messages);
+
       if (data.status === "completed") {
         setIsCompleted(true);
-        setInterview(data);
-        setParticipantName(data.participant_name || "");
-        // Load messages for completed interview
-        const { data: msgs } = await supabase
-          .from("messages")
-          .select("*")
-          .eq("interview_id", data.id)
-          .order("created_at", { ascending: true });
-        if (msgs) setMessages(msgs);
         setLoading(false);
         return;
       }
-
-      setInterview(data);
-      setParticipantName(data.participant_name || "");
 
       // If participant name is already set (e.g. from /join page) AND
       // interview is still pending, we need to auto-start it
@@ -78,32 +119,12 @@ export default function PublicInterviewPage() {
         setLoading(false);
         // Auto-trigger the interview start
         try {
-          const response = await fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              interviewId: data.id,
-              token,
-              message: `[SYSTEM] Interview started with participant: ${data.participant_name}`,
-              isStart: true,
-              participantName: data.participant_name,
-            }),
+          await streamReply({
+            interviewId: data.id,
+            message: `[SYSTEM] Interview started with participant: ${data.participant_name}`,
+            isStart: true,
+            participantName: data.participant_name,
           });
-
-          if (!response.ok) {
-            throw new Error("Failed to start interview chat");
-          }
-
-          // Fetch messages after the API call
-          const { data: newMessages } = await supabase
-            .from("messages")
-            .select("*")
-            .eq("interview_id", data.id)
-            .order("created_at", { ascending: true });
-
-          if (newMessages) {
-            setMessages(newMessages);
-          }
         } catch (err) {
           console.error("Failed to auto-start interview:", err);
           setError("Failed to start the conversation. Please try again.");
@@ -122,67 +143,8 @@ export default function PublicInterviewPage() {
       setLoading(false);
     }
 
-    fetchInterview();
-  }, [token, supabase]);
-
-  // Subscribe to new messages
-  useEffect(() => {
-    if (!interview) return;
-
-    const currentInterview = interview;
-
-    // Fetch existing messages
-    async function fetchMessages() {
-      const { data } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("interview_id", currentInterview.id)
-        .order("created_at", { ascending: true });
-
-      if (data) {
-        setMessages(data);
-      }
-    }
-
-    fetchMessages();
-
-    // Subscribe to new messages
-    const channel = supabase
-      .channel(`messages:${currentInterview.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `interview_id=eq.${currentInterview.id}`,
-        },
-        (payload) => {
-          const newMessage = payload.new as Message;
-          // Avoid duplicates: check if message already exists (including temp messages with same content)
-          setMessages((prev) => {
-            const exists = prev.some(
-              (m) => m.id === newMessage.id ||
-                     (m.id.startsWith('temp-') && m.content === newMessage.content && m.role === newMessage.role)
-            );
-            if (exists) {
-              // Replace temp message with real one
-              return prev.map((m) =>
-                m.id.startsWith('temp-') && m.content === newMessage.content && m.role === newMessage.role
-                  ? newMessage
-                  : m
-              );
-            }
-            return [...prev, newMessage];
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [interview, supabase]);
+    loadInterview();
+  }, [fetchSession, streamReply]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -196,40 +158,19 @@ export default function PublicInterviewPage() {
     e.preventDefault();
     if (!interview) return;
 
-    const currentInterview = interview;
     setError(null);
     setNameSubmitted(true);
     setSending(true); // Show loading indicator
 
     try {
       // Start the interview by sending initial message
-      // The API will handle status update and participant name (bypasses RLS)
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          interviewId: currentInterview.id,
-          token,
-          message: `[SYSTEM] Interview started with participant: ${participantName || "Anonymous"}`,
-          isStart: true,
-          participantName: participantName || "Anonymous",
-        }),
+      // The API will handle status update and participant name
+      await streamReply({
+        interviewId: interview.id,
+        message: `[SYSTEM] Interview started with participant: ${participantName || "Anonymous"}`,
+        isStart: true,
+        participantName: participantName || "Anonymous",
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to start interview chat");
-      }
-
-      // Fetch messages after the API call completes (backup for realtime)
-      const { data: newMessages } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("interview_id", currentInterview.id)
-        .order("created_at", { ascending: true });
-
-      if (newMessages) {
-        setMessages(newMessages);
-      }
     } catch (err) {
       console.error("Failed to start interview:", err);
       setError("Failed to start the conversation. Please try again.");
@@ -258,34 +199,13 @@ export default function PublicInterviewPage() {
     setMessages((prev) => [...prev, tempMessage]);
 
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          interviewId: interview.id,
-          token,
-          message: userMessage,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to send message");
-      }
-
-      // Fetch messages after API call (backup for realtime)
-      const { data: newMessages } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("interview_id", interview.id)
-        .order("created_at", { ascending: true });
-
-      if (newMessages) {
-        setMessages(newMessages);
-      }
+      await streamReply({ interviewId: interview.id, message: userMessage });
     } catch (err) {
       console.error("Failed to send message:", err);
-      // Remove the optimistic message and show error
-      setMessages((prev) => prev.filter((m) => m.id !== tempMessage.id));
+      // Remove the optimistic message (and any partial reply) and show error
+      setMessages((prev) =>
+        prev.filter((m) => m.id !== tempMessage.id && !m.id.startsWith(STREAMING_ID_PREFIX))
+      );
       setError("Failed to send message. Please try again.");
       setInput(userMessage); // Restore the input so user can retry
     } finally {
@@ -401,6 +321,9 @@ export default function PublicInterviewPage() {
     );
   }
 
+  // The interviewer just wrapped up: keep the closing message visible, stop input
+  const interviewEnded = interview?.status === "completed";
+
   return (
     <div className="min-h-screen flex flex-col bg-landing-ivory grain">
       {/* Error Toast */}
@@ -462,7 +385,7 @@ export default function PublicInterviewPage() {
               </div>
             </div>
           ))}
-          {sending && (
+          {sending && !messages.some((m) => m.id.startsWith(STREAMING_ID_PREFIX)) && (
             <div className="flex justify-start">
               <div className="bg-white border border-landing-charcoal/5 rounded-2xl px-5 py-3">
                 <div className="flex space-x-1.5">
@@ -485,10 +408,10 @@ export default function PublicInterviewPage() {
           <input
             ref={inputRef}
             type="text"
-            placeholder="Type your response..."
+            placeholder={interviewEnded ? "Interview complete - thank you!" : "Type your response..."}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            disabled={sending}
+            disabled={sending || interviewEnded}
             className="flex-1 h-12 px-5 bg-white border border-landing-charcoal/10 rounded-full text-landing-charcoal placeholder:text-landing-stone/50 focus:outline-none focus:border-landing-forest focus:ring-2 focus:ring-landing-forest/10 transition-all duration-300 disabled:opacity-50"
           />
           <button

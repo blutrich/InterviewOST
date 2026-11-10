@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { openrouter, models } from "@/lib/openrouter";
+import { modelFor } from "@/lib/openrouter";
 
 /**
  * Interviewer Agent
@@ -8,6 +8,7 @@ import { openrouter, models } from "@/lib/openrouter";
  * Focuses on gathering specific past behaviors, not opinions or hypotheticals.
  */
 export const interviewerAgent = new Agent({
+  id: "interviewer-agent",
   name: "story-based-interviewer",
   description: "Conducts interviews focused on specific past behaviors using Teresa Torres methodology",
   instructions: `You are a skilled interviewer using Teresa Torres' story excavation method.
@@ -117,7 +118,7 @@ When ending the interview, ALWAYS:
 
 Example closing:
 "Thank you so much for sharing your experiences today! Your insights about training challenges and finding time to climb are really valuable. I appreciate you taking the time - this will genuinely help us improve things for climbers like yourself. Take care! [INTERVIEW_COMPLETE]"`,
-  model: openrouter(models.default),
+  model: modelFor("default"),
   // Memory disabled - conversation state is managed via Supabase messages table
   // and passed as context in each request
 });
