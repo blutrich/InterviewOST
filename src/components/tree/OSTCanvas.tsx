@@ -27,7 +27,7 @@ interface Opportunity {
   id: string;
   title: string;
   description?: string;
-  type: "outcome" | "theme" | "opportunity" | "solution" | "unmet_need" | "workaround";
+  type: "outcome" | "opportunity" | "solution" | "unmet_need" | "workaround";
   status: "suggested" | "approved" | "rejected" | "merged";
   parent_id: string | null;
   evidence_count: number;
@@ -139,44 +139,6 @@ function OSTCanvasInner({
     onNodeSelect?.(opp || null);
   }, [filteredOpportunities, onNodeSelect]);
 
-  // Theme frequency, computed live from evidence (no stored column).
-  //   n = distinct interviews across a theme's child opportunities' evidence
-  //   m = distinct interviews analyzed across the whole project
-  const { themeFreqById, totalInterviewCount } = useMemo(() => {
-    const total = new Set<string>();
-    const childrenByParent = new Map<string, string[]>();
-    const interviewsByOpp = new Map<string, Set<string>>();
-
-    opportunities.forEach((o) => {
-      const set = new Set<string>();
-      (o.evidence || []).forEach((e) => {
-        if (e.interview_id) {
-          set.add(e.interview_id);
-          total.add(e.interview_id);
-        }
-      });
-      interviewsByOpp.set(o.id, set);
-      if (o.parent_id) {
-        const arr = childrenByParent.get(o.parent_id) || [];
-        arr.push(o.id);
-        childrenByParent.set(o.parent_id, arr);
-      }
-    });
-
-    const map = new Map<string, number>();
-    opportunities.forEach((o) => {
-      if (o.type === "theme") {
-        const ivs = new Set<string>();
-        (childrenByParent.get(o.id) || []).forEach((childId) => {
-          (interviewsByOpp.get(childId) || new Set<string>()).forEach((iv) => ivs.add(iv));
-        });
-        map.set(o.id, ivs.size);
-      }
-    });
-
-    return { themeFreqById: map, totalInterviewCount: total.size };
-  }, [opportunities]);
-
   // Define node types with useMemo to prevent recreation
   const nodeTypes: NodeTypes = useMemo(
     () => ({
@@ -199,8 +161,6 @@ function OSTCanvasInner({
         type: opp.type,
         status: opp.status,
         evidenceCount: opp.evidence_count || 0,
-        frequencyN: opp.type === "theme" ? themeFreqById.get(opp.id) ?? 0 : undefined,
-        frequencyM: opp.type === "theme" ? totalInterviewCount : undefined,
         onSelect: handleNodeSelect,
         onDelete: onNodeDelete,
         onAddChild: onAddChild,
@@ -229,7 +189,7 @@ function OSTCanvasInner({
     }
 
     return nodes;
-  }, [filteredOpportunities, rootOutcome, handleNodeSelect, onNodeDelete, onAddChild, onTitleChange, themeFreqById, totalInterviewCount]);
+  }, [filteredOpportunities, rootOutcome, handleNodeSelect, onNodeDelete, onAddChild, onTitleChange]);
 
   // Convert parent relationships to edges
   const buildEdges = useCallback((): Edge[] => {
@@ -420,8 +380,6 @@ function OSTCanvasInner({
             switch (data?.type) {
               case "outcome":
                 return "#a855f7"; // purple
-              case "theme":
-                return "#f43f5e"; // rose
               case "opportunity":
               case "unmet_need":
                 return "#f59e0b"; // amber

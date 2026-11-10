@@ -5,17 +5,19 @@ export const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY!,
 });
 
-// Models per task. OpenRouter retires model IDs over time (a retired ID
-// returns 404 on every call) — `npm run check:models` verifies these still exist.
+// Available models for different tasks
 export const models = {
-  // Primary model for the planner, synthesizer, mapper, themer and project generator
-  default: "anthropic/claude-sonnet-5.5",
+  // Primary model for agents
+  default: "anthropic/claude-3.5-sonnet",
 
-  // Model that conducts the live interview (interviewer agent only)
-  interviewer: "openai/gpt-5.4-mini",
+  // Fast model for real-time responses
+  fast: "openai/gpt-4o-mini",
 
-  // Richer, more strategic output for the recommender agent
-  recommender: "anthropic/claude-opus-4.8",
+  // Budget-friendly option
+  budget: "meta-llama/llama-3.1-70b-instruct",
+
+  // High-quality reasoning
+  reasoning: "anthropic/claude-3.5-sonnet",
 } as const;
 
 export type ModelKey = keyof typeof models;

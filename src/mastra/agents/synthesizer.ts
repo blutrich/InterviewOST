@@ -89,24 +89,6 @@ Format:
   ]
 }
 
-### 5. INSIGHTS (Fact vs Interpretation)
-
-Capture things you heard or observed that are NOT opportunities but are worth
-remembering — "additional notes" in Teresa Torres' template. The discipline:
-separate the FACT (what the participant actually said or did — observed behavior,
-verbatim-ish, no judgment) from your INTERPRETATION (the conclusion you draw from
-it). It is fine to group several facts under one interpretation.
-
-Format:
-{
-  "insights": [
-    {
-      "facts": ["What they specifically said or did", "Another related observation"],
-      "interpretation": "The conclusion or judgment you draw from those facts"
-    }
-  ]
-}
-
 ## COMPLETE OUTPUT FORMAT
 
 Return a single JSON object:
@@ -115,8 +97,7 @@ Return a single JSON object:
   "experience_map": [...],
   "quote_reel": [...],
   "facts": {...},
-  "blind_spots": [...],
-  "insights": [...]
+  "blind_spots": [...]
 }
 
 ## IMPORTANT GUIDELINES
