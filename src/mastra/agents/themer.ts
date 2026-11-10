@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { openrouter, models } from "@/lib/openrouter";
+import { modelFor } from "@/lib/openrouter";
 
 /**
  * Themer Agent
@@ -22,6 +22,7 @@ import { openrouter, models } from "@/lib/openrouter";
  * `suggested` and the human approves / edits / re-parents on the canvas.
  */
 export const themerAgent = new Agent({
+  id: "themer-agent",
   name: "opportunity-themer",
   description:
     "Clusters a project's leaf opportunities into evidence-grounded Themes (findings) that form the top layer of the OST",
@@ -74,5 +75,5 @@ Return ONLY a JSON object with this exact shape (no markdown fences, no commenta
 3. **Do not output counts or percentages** — frequency is computed downstream from the evidence. Just cluster well and quote well.
 4. **4-6 themes total.** If the data only supports 3 strong findings, return 3 rather than padding with weak ones.
 5. **Never invent needs that aren't in the opportunities.** You are organizing existing evidence, not brainstorming.`,
-  model: openrouter(models.default),
+  model: modelFor("default"),
 });

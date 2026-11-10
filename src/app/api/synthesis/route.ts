@@ -1,5 +1,6 @@
 import { createClient, getAuthenticatedUser, verifyProjectOwnership } from "@/lib/supabase/server";
 import { mastra } from "@/mastra";
+import { interviewSnapshotSchema } from "@/mastra/schemas";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import {
@@ -18,48 +19,6 @@ const updateSnapshotSchema = z.object({
   snapshotId: z.string().uuid("Invalid snapshot ID"),
   status: z.enum(["approved", "rejected", "pending"]),
   human_notes: z.string().max(5000, "Notes too long").optional(),
-});
-
-// Zod schema for Interview Snapshot (Teresa Torres format)
-const interviewSnapshotSchema = z.object({
-  experience_map: z.array(
-    z.object({
-      step: z.number(),
-      action: z.string(),
-      feeling: z.string(),
-      timestamp: z.string().optional(),
-    })
-  ),
-  quote_reel: z.array(
-    z.object({
-      quote: z.string(),
-      context: z.string(),
-      emotion: z.string(),
-    })
-  ),
-  facts: z.object({
-    role: z.string().optional(),
-    tools: z.array(z.string()).optional(),
-    frequency: z.string().optional(),
-    context: z.string().optional(),
-    other: z.record(z.any()).optional(),
-  }),
-  blind_spots: z.array(
-    z.object({
-      observation: z.string(),
-      suggestion: z.string(),
-      severity: z.enum(["low", "medium", "high"]),
-    })
-  ),
-  // Teresa Torres "Insights" column: separate observed FACTS from your
-  // INTERPRETATION of them. Each item groups one or more facts with the
-  // conclusion drawn from them.
-  insights: z.array(
-    z.object({
-      facts: z.array(z.string()),
-      interpretation: z.string(),
-    })
-  ),
 });
 
 export async function POST(req: Request) {
@@ -161,7 +120,7 @@ INTERPRETATION (the conclusion or judgment you draw from those facts). Keep fact
 interpretations clearly separate.`;
 
     const response = await synthesizer.generate(prompt, {
-      output: interviewSnapshotSchema,
+      structuredOutput: { schema: interviewSnapshotSchema },
     });
 
     const snapshot = response.object;

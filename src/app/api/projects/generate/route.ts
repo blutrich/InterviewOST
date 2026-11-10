@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthenticatedUser } from "@/lib/supabase/server";
 import { mastra } from "@/mastra";
+import { projectOutputSchema } from "@/mastra/schemas";
 import { z } from "zod";
 import {
   checkRateLimit,
@@ -15,14 +16,6 @@ const generateProjectSchema = z.object({
     .string()
     .min(10, "Please provide a more detailed description (at least 10 characters)")
     .max(500, "Description too long (max 500 characters)"),
-});
-
-// Output schema for the generated project
-const projectOutputSchema = z.object({
-  name: z.string(),
-  research_goals: z.string(),
-  target_audience: z.string(),
-  desired_outcome: z.string(),
 });
 
 export async function POST(req: Request) {
@@ -53,22 +46,15 @@ export async function POST(req: Request) {
     const generator = mastra.getAgent("projectGeneratorAgent");
 
     // Generate project details
-    const response = await generator.generate(
-      `Generate a research project from this description: "${description}"`
-    );
-
-    // Parse the JSON response
     let projectData;
     try {
-      const text = response.text;
-      // Remove any markdown code blocks if present
-      const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
-      const jsonStr = jsonMatch[1] || text;
-      const parsed = JSON.parse(jsonStr.trim());
-      projectData = projectOutputSchema.parse(parsed);
-    } catch (parseError) {
-      console.error("Failed to parse project generator response:", parseError);
-      console.error("Raw response:", response.text);
+      const response = await generator.generate(
+        `Generate a research project from this description: "${description}"`,
+        { structuredOutput: { schema: projectOutputSchema } }
+      );
+      projectData = response.object;
+    } catch (agentError) {
+      console.error("Project generator failed to produce valid output:", agentError);
       return NextResponse.json(
         { error: "Failed to generate project details. Please try again." },
         { status: 500 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient, getAuthenticatedUser, verifyProjectOwnership } from "@/lib/supabase/server";
 import { mastra } from "@/mastra";
+import { RECOMMENDATION_TYPES, recommendationsOutputSchema } from "@/mastra/schemas";
 import {
   checkRateLimit,
   getClientIdentifier,
@@ -52,8 +53,6 @@ function isMissingTableError(err: unknown): boolean {
 // Schemas
 // ============================================================
 
-const RECOMMENDATION_TYPES = ["solid", "bold", "moonshot", "standalone"] as const;
-
 const generateSchema = z.object({
   projectId: z.string().uuid("Invalid project ID"),
   opportunityId: z.string().uuid("Invalid opportunity ID"),
@@ -65,23 +64,6 @@ const updateSchema = z.object({
   human_notes: z.string().max(5000, "Notes too long").optional(),
   // null clears the assignment; non-null sets it
   owner_email: z.union([z.string().email("Invalid email"), z.null()]).optional(),
-});
-
-// Validated shape of the agent's JSON output
-const recommendationSchema = z.object({
-  type: z.enum(RECOMMENDATION_TYPES),
-  title: z.string().min(1).max(200),
-  explanation: z.string().min(1).max(4000),
-  rationale: z.string().min(1).max(4000),
-  supporting_examples: z.array(z.string().min(1).max(2000)).min(1),
-  expected_value: z.string().min(1).max(2000),
-  call_to_action: z.string().min(1).max(1000),
-});
-
-const agentOutputSchema = z.object({
-  recommendations: z
-    .array(recommendationSchema)
-    .min(4, "Agent must return all 4 tiers"),
 });
 
 // ============================================================
@@ -296,47 +278,28 @@ Return ONLY a JSON object with the exact shape specified in your system instruct
     // Call the recommender agent
     const tAgent = Date.now();
     const recommender = mastra.getAgent("recommenderAgent");
-    let response;
+    // The agent's output is validated against the schema; a malformed or
+    // incomplete answer throws here the same way a failed model call does.
+    let parsed;
     try {
       // Creative temperature for more inventive recommendations (bold / moonshot
       // tiers benefit from higher randomness). Note: Claude clamps to its max of 1.0.
-      response = await recommender.generate(prompt, {
+      const response = await recommender.generate(prompt, {
         modelSettings: { temperature: 1.1 },
+        structuredOutput: { schema: recommendationsOutputSchema },
       });
+      parsed = response.object;
     } catch (agentErr) {
       console.error(`${LOG} POST agent.generate threw`, agentErr);
       return NextResponse.json(
         {
-          error: "Agent failed to generate recommendations",
+          error: "Agent failed to generate recommendations. Try regenerating.",
           message: agentErr instanceof Error ? agentErr.message : String(agentErr),
         },
         { status: 502 }
       );
     }
-    console.log(`${LOG} POST agent ok | ms=${Date.now() - tAgent} chars=${response.text?.length ?? 0}`);
-
-    // Parse and validate the agent's output
-    let parsed;
-    try {
-      const text = response.text;
-      const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-      const jsonStr = fenced ? fenced[1] : text;
-      const raw = JSON.parse(jsonStr.trim());
-      parsed = agentOutputSchema.parse(raw);
-    } catch (parseError) {
-      console.error(`${LOG} POST parse failed`, {
-        error: parseError instanceof Error ? parseError.message : String(parseError),
-        raw_preview: response.text?.slice(0, 1500),
-      });
-      return NextResponse.json(
-        {
-          error: "Failed to parse recommendation output. Try regenerating.",
-          message: parseError instanceof Error ? parseError.message : String(parseError),
-          raw_preview: response.text?.slice(0, 500),
-        },
-        { status: 502 }
-      );
-    }
+    console.log(`${LOG} POST agent ok | ms=${Date.now() - tAgent} recs=${parsed.recommendations.length}`);
 
     // Verify all 4 tiers are present
     const tiersPresent = new Set(parsed.recommendations.map((r) => r.type));

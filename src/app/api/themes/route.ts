@@ -1,5 +1,6 @@
 import { createClient, getAuthenticatedUser, verifyProjectOwnership } from "@/lib/supabase/server";
 import { mastra } from "@/mastra";
+import { themeSuggestionsSchema } from "@/mastra/schemas";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import {
@@ -30,24 +31,6 @@ import {
 
 const regenerateSchema = z.object({
   projectId: z.string().uuid("Invalid project ID"),
-});
-
-const themeSuggestionsSchema = z.object({
-  themes: z.array(
-    z.object({
-      finding: z.string(),
-      description: z.string().nullable().optional(),
-      member_opportunity_ids: z.array(z.string()).default([]),
-      representative_quotes: z
-        .array(
-          z.object({
-            quote: z.string(),
-            interview_id: z.string().nullable().optional(),
-          })
-        )
-        .default([]),
-    })
-  ),
 });
 
 const LEAF_EXCLUDED_TYPES = ["outcome", "theme"];
@@ -145,17 +128,14 @@ ${leavesContext}
 Return ONLY the JSON object described in your instructions (themes[] with finding, description, member_opportunity_ids using the exact ids above, and representative_quotes with their interview_id).`;
 
     const themer = mastra.getAgent("themerAgent");
-    const response = await themer.generate(prompt);
-
     let suggestions;
     try {
-      const text = response.text;
-      const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
-      const jsonStr = jsonMatch[1] || text;
-      suggestions = themeSuggestionsSchema.parse(JSON.parse(jsonStr.trim()));
-    } catch (parseError) {
-      console.error("Failed to parse themer response:", parseError);
-      console.error("Raw response:", response.text);
+      const response = await themer.generate(prompt, {
+        structuredOutput: { schema: themeSuggestionsSchema },
+      });
+      suggestions = response.object;
+    } catch (agentError) {
+      console.error("Themer failed to produce valid themes:", agentError);
       return NextResponse.json({ error: "Failed to parse theme suggestions" }, { status: 500 });
     }
 
@@ -175,7 +155,7 @@ Return ONLY the JSON object described in your instructions (themes[] with findin
     let themesCreated = 0;
     for (let t = 0; t < suggestions.themes.length; t++) {
       const theme = suggestions.themes[t];
-      const memberIds = theme.member_opportunity_ids.filter((id) => leafIds.has(id));
+      const memberIds = (theme.member_opportunity_ids ?? []).filter((id) => leafIds.has(id));
       const themeX = 120 + t * 340;
 
       const { data: themeRow, error: themeError } = await supabase

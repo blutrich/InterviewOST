@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { openrouter, models } from "@/lib/openrouter";
+import { modelFor } from "@/lib/openrouter";
 
 /**
  * Project Generator Agent
@@ -8,6 +8,7 @@ import { openrouter, models } from "@/lib/openrouter";
  * a simple description into Teresa Torres-aligned project details.
  */
 export const projectGeneratorAgent = new Agent({
+  id: "project-generator-agent",
   name: "project-generator",
   description: "Generates structured research project details from user descriptions",
   instructions: `You are an expert in Teresa Torres' Continuous Discovery methodology.
@@ -74,5 +75,5 @@ Output:
 - No additional explanation
 - Make the outcome measurable and behavior-focused
 - Be specific, not generic`,
-  model: openrouter(models.default),
+  model: modelFor("default"),
 });

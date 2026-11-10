@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, getAuthenticatedUser, verifyProjectOwnership } from "@/lib/supabase/server";
 import { mastra } from "@/mastra";
+import { rubricSchema } from "@/mastra/schemas";
 import { z } from "zod";
 import {
   checkRateLimit,
@@ -137,26 +138,18 @@ Please create a comprehensive story-based interview rubric that will help us gat
 
 Return ONLY the JSON rubric object, no additional text.`;
 
-    const response = await planner.generate(prompt);
-
-    // Parse the rubric from the response
     let rubric;
     try {
-      // Try to extract JSON from the response
-      const jsonMatch = response.text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        rubric = JSON.parse(jsonMatch[0]);
-      } else {
-        throw new Error("No JSON found in response");
-      }
-    } catch (parseError) {
-      console.error("Failed to parse rubric:", parseError);
-      // Return a default structure if parsing fails
-      rubric = {
-        introduction: response.text.substring(0, 500),
-        topics: [],
-        closing: "Thank you for your time and insights.",
-      };
+      const response = await planner.generate(prompt, {
+        structuredOutput: { schema: rubricSchema },
+      });
+      rubric = response.object;
+    } catch (agentError) {
+      console.error("Planner failed to produce a valid rubric:", agentError);
+      return NextResponse.json(
+        { error: "Failed to generate interview rubric. Please try again." },
+        { status: 502 }
+      );
     }
 
     // Save the template to the database (using regular client, not service client)
