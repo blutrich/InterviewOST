@@ -5,19 +5,11 @@ export const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY!,
 });
 
-// Available models for different tasks
+// Models per task. OpenRouter retires model IDs over time (a retired ID
+// returns 404 on every call) — `npm run check:models` verifies these still exist.
 export const models = {
-  // Primary model for agents
-  default: "anthropic/claude-sonnet-4",
-
-  // Fast model for real-time responses
-  fast: "anthropic/claude-haiku-latest",
-
-  // Budget-friendly option
-  budget: "meta-llama/llama-3.1-70b-instruct",
-
-  // High-quality reasoning
-  reasoning: "anthropic/claude-opus-4",
+  // Primary model for all agents
+  default: "anthropic/claude-sonnet-5.5",
 } as const;
 
 export type ModelKey = keyof typeof models;

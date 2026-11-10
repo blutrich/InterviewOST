@@ -80,10 +80,6 @@ export async function POST(req: Request) {
       console.error("Missing OPENROUTER_API_KEY");
       return NextResponse.json({ error: "Missing OPENROUTER_API_KEY env var" }, { status: 500 });
     }
-    if (!process.env.DATABASE_URL) {
-      console.error("Missing DATABASE_URL");
-      return NextResponse.json({ error: "Missing DATABASE_URL env var" }, { status: 500 });
-    }
 
     // Validate input
     const body = await req.json();
