@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       if (participantName) interview.participant_name = participantName;
     }
 
-    if (interview.status !== "active" && !isStart) {
+    if (interview.status !== "active") {
       return new Response("Interview is not active", { status: 403 });
     }
 
@@ -110,8 +110,8 @@ export async function POST(req: Request) {
       : buildTurnPrompt(systemContext, history, message);
 
     // ---- Streaming response ----
-    // Tokens flow agent -> stream cleaner -> client (avatar speaks them as
-    // they arrive). The cleaner holds back the tail so [INTERVIEW_COMPLETE]
+    // Tokens flow agent -> stream cleaner -> client (rendered as they
+    // arrive). The cleaner holds back the tail so [INTERVIEW_COMPLETE]
     // can't leak to the wire. We persist to Supabase BEFORE closing the
     // stream so the client's `done` event implies DB-consistent state.
     const streamResult = await interviewer.stream(prompt);

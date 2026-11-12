@@ -12,7 +12,7 @@ export default function AIAgentsPage() {
           Using AI Agents
         </h1>
         <p className="text-lg text-gray-600">
-          AI Interviewer uses 5 specialized AI agents, each trained on Teresa Torres&apos; Continuous Discovery methodology.
+          Discovery Co-Pilot uses 5 specialized AI agents, each trained on Teresa Torres&apos; Continuous Discovery methodology.
         </p>
       </header>
 

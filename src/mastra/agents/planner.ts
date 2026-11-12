@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { openrouter, models } from "@/lib/openrouter";
+import { modelFor } from "@/lib/openrouter";
 
 /**
  * Planner Agent
@@ -8,6 +8,7 @@ import { openrouter, models } from "@/lib/openrouter";
  * Core principle: "Stories over Opinions" - focus on specific past behaviors, not hypotheticals.
  */
 export const plannerAgent = new Agent({
+  id: "planner-agent",
   name: "interview-planner",
   description: "Creates story-based interview rubrics using Teresa Torres methodology",
   instructions: `You are an expert in Teresa Torres' Continuous Discovery methodology.
@@ -81,5 +82,5 @@ Return a JSON object with this exact structure:
 4. Consider ethical guidelines for sensitive topics
 5. Estimate realistic time for each section
 6. Total interview should fit within the specified duration`,
-  model: openrouter(models.default),
+  model: modelFor("default"),
 });

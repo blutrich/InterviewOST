@@ -1,24 +1,17 @@
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-
-// Create OpenRouter provider instance
-export const openrouter = createOpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY!,
-});
-
 // Models per task. OpenRouter retires model IDs over time (a retired ID
 // returns 404 on every call) — `npm run check:models` verifies these still exist.
 export const models = {
-  // Primary model for the planner, synthesizer, mapper, themer and project generator
+  // Primary model for all agents
   default: "anthropic/claude-sonnet-5.5",
-
-  // Model that conducts the live interview (interviewer agent only)
-  interviewer: "openai/gpt-5.4-mini",
-
-  // Richer, more strategic output for the recommender agent
-  recommender: "anthropic/claude-opus-4.8",
 } as const;
 
 export type ModelKey = keyof typeof models;
+
+// Mastra's model router resolves "openrouter/<model id>" itself and reads
+// OPENROUTER_API_KEY from the environment — no provider package needed.
+export function modelFor(key: ModelKey): `openrouter/${string}` {
+  return `openrouter/${models[key]}`;
+}
 
 // Model display names for UI
 export const modelDisplayNames: Record<string, string> = {

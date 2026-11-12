@@ -1,5 +1,6 @@
 import { createClient, getAuthenticatedUser, verifyProjectOwnership } from "@/lib/supabase/server";
 import { mastra } from "@/mastra";
+import { interviewSnapshotSchema } from "@/mastra/schemas";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import {
@@ -18,48 +19,6 @@ const updateSnapshotSchema = z.object({
   snapshotId: z.string().uuid("Invalid snapshot ID"),
   status: z.enum(["approved", "rejected", "pending"]),
   human_notes: z.string().max(5000, "Notes too long").optional(),
-});
-
-// Zod schema for Interview Snapshot (Teresa Torres format)
-const interviewSnapshotSchema = z.object({
-  experience_map: z.array(
-    z.object({
-      step: z.number(),
-      action: z.string(),
-      feeling: z.string(),
-      timestamp: z.string().optional(),
-    })
-  ),
-  quote_reel: z.array(
-    z.object({
-      quote: z.string(),
-      context: z.string(),
-      emotion: z.string(),
-    })
-  ),
-  facts: z.object({
-    role: z.string().optional(),
-    tools: z.array(z.string()).optional(),
-    frequency: z.string().optional(),
-    context: z.string().optional(),
-    other: z.record(z.any()).optional(),
-  }),
-  blind_spots: z.array(
-    z.object({
-      observation: z.string(),
-      suggestion: z.string(),
-      severity: z.enum(["low", "medium", "high"]),
-    })
-  ),
-  // Teresa Torres "Insights" column: separate observed FACTS from your
-  // INTERPRETATION of them. Each item groups one or more facts with the
-  // conclusion drawn from them.
-  insights: z.array(
-    z.object({
-      facts: z.array(z.string()),
-      interpretation: z.string(),
-    })
-  ),
 });
 
 export async function POST(req: Request) {
@@ -152,16 +111,10 @@ ${interview.participant_name || "Anonymous"}
 
 ---
 
-Generate the Interview Snapshot JSON with experience_map, quote_reel, facts, blind_spots, and insights.
-
-For "insights", follow Teresa Torres' Fact-vs-Insight distinction: capture things you heard or
-observed that aren't opportunities but are worth remembering. Each item lists one or more concrete
-FACTS (what the participant actually said or did — observed behavior, not interpretation) and your
-INTERPRETATION (the conclusion or judgment you draw from those facts). Keep facts verbatim-ish and
-interpretations clearly separate.`;
+Generate the Interview Snapshot JSON with experience_map, quote_reel, facts, and blind_spots.`;
 
     const response = await synthesizer.generate(prompt, {
-      output: interviewSnapshotSchema,
+      structuredOutput: { schema: interviewSnapshotSchema },
     });
 
     const snapshot = response.object;
@@ -175,7 +128,6 @@ interpretations clearly separate.`;
         quote_reel: snapshot.quote_reel,
         facts: snapshot.facts,
         blind_spots: snapshot.blind_spots,
-        insights: snapshot.insights,
         status: "pending", // Pending human validation
       })
       .select()

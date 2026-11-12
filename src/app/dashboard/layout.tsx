@@ -44,25 +44,22 @@ export default async function DashboardLayout({
     .toUpperCase() || user.email?.[0].toUpperCase() || "U";
 
   return (
-    <div className="theme-base44 min-h-screen grain">
+    <div className="min-h-screen bg-landing-ivory grain">
       {/* Header */}
       <header className="sticky top-0 z-50 w-full border-b border-landing-charcoal/5 bg-landing-ivory/80 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-6 lg:px-8">
           <div className="flex items-center gap-8">
             {/* Logo */}
             <Link href="/dashboard" className="flex items-center gap-3 group">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/base44-mark.svg"
-                alt="Base44"
-                className="w-9 h-9 transition-transform duration-300 group-hover:scale-105"
-              />
+              <div className="w-9 h-9 rounded-lg bg-landing-forest flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
+                <span className="text-white font-serif text-lg font-medium">D</span>
+              </div>
               <div className="hidden sm:block">
                 <span className="text-landing-charcoal font-medium tracking-tight text-sm">
-                  AI
+                  Discovery
                 </span>
                 <span className="text-landing-stone font-light tracking-tight text-sm ml-1">
-                  Interviewer
+                  Co-Pilot
                 </span>
               </div>
             </Link>

@@ -2,7 +2,7 @@
  * Streaming-safe annotation stripper for the Interviewer agent's text. Pure
  * (no I/O), so it's trivial to reason about and to unit-test.
  *
- * Two kinds of text must never reach the avatar's TTS / captions:
+ * Two kinds of text must never reach the participant's screen:
  *   - the `[INTERVIEW_COMPLETE]` sentinel the agent emits on the final turn,
  *     and
  *   - internal-thinking annotations the agent is instructed NOT to emit but
@@ -10,7 +10,7 @@
  *     `[Thinking: ...]`, etc.
  *
  * Both used to be scrubbed server-side before the (non-streaming) response
- * was returned. Now we stream raw tokens to the avatar as they arrive, and a
+ * was returned. Now we stream raw tokens to the client as they arrive, and a
  * token boundary can split any of these across chunks — so a naive per-chunk
  * regex misses an annotation straddling two emits.
  *

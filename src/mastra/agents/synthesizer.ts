@@ -1,5 +1,5 @@
 import { Agent } from "@mastra/core/agent";
-import { openrouter, models } from "@/lib/openrouter";
+import { modelFor } from "@/lib/openrouter";
 
 /**
  * Synthesizer Agent
@@ -8,6 +8,7 @@ import { openrouter, models } from "@/lib/openrouter";
  * This is the "15-minute workflow" - process immediately, never pile up data.
  */
 export const synthesizerAgent = new Agent({
+  id: "synthesizer-agent",
   name: "interview-synthesizer",
   description: "Creates structured Interview Snapshots from transcripts using Teresa Torres methodology",
   instructions: `You create Interview Snapshots from interview transcripts.
@@ -89,24 +90,6 @@ Format:
   ]
 }
 
-### 5. INSIGHTS (Fact vs Interpretation)
-
-Capture things you heard or observed that are NOT opportunities but are worth
-remembering — "additional notes" in Teresa Torres' template. The discipline:
-separate the FACT (what the participant actually said or did — observed behavior,
-verbatim-ish, no judgment) from your INTERPRETATION (the conclusion you draw from
-it). It is fine to group several facts under one interpretation.
-
-Format:
-{
-  "insights": [
-    {
-      "facts": ["What they specifically said or did", "Another related observation"],
-      "interpretation": "The conclusion or judgment you draw from those facts"
-    }
-  ]
-}
-
 ## COMPLETE OUTPUT FORMAT
 
 Return a single JSON object:
@@ -115,8 +98,7 @@ Return a single JSON object:
   "experience_map": [...],
   "quote_reel": [...],
   "facts": {...},
-  "blind_spots": [...],
-  "insights": [...]
+  "blind_spots": [...]
 }
 
 ## IMPORTANT GUIDELINES
@@ -135,5 +117,5 @@ Return a single JSON object:
 - Comparisons to alternatives
 - Strong emotional language
 - Hesitations or contradictions`,
-  model: openrouter(models.default),
+  model: modelFor("default"),
 });

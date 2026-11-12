@@ -6,9 +6,9 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
-    // New in eslint-plugin-react-hooks 7 (arrived with Next 16.4). Existing
-    // avatar/kanban/tree effects trip these; keep them visible as warnings
-    // until those components are refactored.
+    // New in eslint-plugin-react-hooks 7 (arrived with Next 16.4). Some
+    // existing effects trip these; keep them visible as warnings until
+    // those components are refactored.
     rules: {
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/refs": "warn",

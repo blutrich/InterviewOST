@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { OSTCanvas, InterviewSelector } from "@/components/tree";
 import type { Edge } from "@xyflow/react";
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ interface Opportunity {
   id: string;
   title: string;
   description?: string;
-  type: "outcome" | "theme" | "opportunity" | "solution" | "unmet_need" | "workaround";
+  type: "outcome" | "opportunity" | "solution" | "unmet_need" | "workaround";
   status: "suggested" | "approved" | "rejected" | "merged";
   parent_id: string | null;
   evidence_count: number;
@@ -83,51 +83,6 @@ export function OSTCanvasWrapper({
   const [saving, setSaving] = useState(false);
   const [selectedInterviewIds, setSelectedInterviewIds] = useState<string[]>([]);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
-  const [generatingThemes, setGeneratingThemes] = useState(false);
-  const autoThemedRef = useRef(false);
-
-  // Reload opportunities (incl. evidence) without a full page refresh.
-  const refreshOpportunities = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/opportunities?projectId=${projectId}`);
-      if (res.ok) setOpportunities(await res.json());
-    } catch (error) {
-      console.error("Failed to refresh opportunities:", error);
-    }
-  }, [projectId]);
-
-  // Regenerate the Theme layer (idempotent server-side) and refresh. Automatic
-  // — no button. Themes are the top layer of the tree beneath the outcome.
-  const regenerateThemes = useCallback(async () => {
-    setGeneratingThemes(true);
-    try {
-      const res = await fetch("/api/themes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId }),
-      });
-      if (res.ok) await refreshOpportunities();
-      else console.error("Theme generation failed:", await res.json().catch(() => ({})));
-    } catch (error) {
-      console.error("Theme generation error:", error);
-    } finally {
-      setGeneratingThemes(false);
-    }
-  }, [projectId, refreshOpportunities]);
-
-  // Auto-build the Theme layer when the tree has opportunities but no themes yet
-  // (e.g. an existing project, or right after the first interviews are mapped).
-  useEffect(() => {
-    if (autoThemedRef.current) return;
-    const hasThemes = opportunities.some((o) => o.type === "theme");
-    const leafCount = opportunities.filter(
-      (o) => o.type !== "outcome" && o.type !== "theme"
-    ).length;
-    if (!hasThemes && leafCount >= 2) {
-      autoThemedRef.current = true;
-      regenerateThemes();
-    }
-  }, [opportunities, regenerateThemes]);
 
   // Get messages from selected interviews
   const selectedMessages = interviews
@@ -364,21 +319,12 @@ export function OSTCanvasWrapper({
 
   const legendItems = [
     { type: "outcome", label: "Outcome", color: "border-purple-500", description: "Business goal - how the company creates value" },
-    { type: "theme", label: "Theme", color: "border-rose-500", description: "Cross-interview finding - the top layer that groups opportunities (shows N of M interviews)" },
     { type: "opportunity", label: "Opportunity", color: "border-amber-500", description: "Customer need, pain point, or desire" },
     { type: "solution", label: "Solution", color: "border-green-500", description: "Product, feature, or intervention" },
   ];
 
   return (
     <div className="relative w-full h-full">
-      {/* Auto theme generation indicator (no manual trigger) */}
-      {generatingThemes && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-md border border-rose-200 text-[11px] uppercase tracking-wider text-rose-600">
-          <span className="w-3 h-3 border-2 border-rose-200 border-t-rose-600 rounded-full animate-spin" />
-          Finding themes…
-        </div>
-      )}
-
       {/* Interview Selector Sidebar */}
       {interviews.length > 0 && (
         <div className="absolute top-4 left-4 z-10 w-64">

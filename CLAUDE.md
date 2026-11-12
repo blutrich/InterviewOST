@@ -11,7 +11,7 @@ AI-powered interview platform using Teresa Torres' Continuous Discovery methodol
 | **Next.js 16 Setup** | TypeScript, Tailwind, shadcn/ui |
 | **Supabase Schema** | All tables: projects, templates, interviews, messages, snapshots, opportunities, evidence |
 | **Auth Flow** | Login, signup, callback, middleware |
-| **Mastra Agents** | Project Generator, Planner, Interviewer ("Nina"), Synthesizer, Mapper, Themer, Recommender (7 agents) |
+| **Mastra Agents** | Project Generator, Planner, Interviewer, Synthesizer, Mapper (5 agents) |
 | **Dashboard** | Layout, projects list, project detail page |
 | **Public Interview** | `/i/[token]` - participant interview UI |
 | **Chat API** | `/api/chat` - live interview with AI |
@@ -33,19 +33,13 @@ AI-powered interview platform using Teresa Torres' Continuous Discovery methodol
 | **Kanban CRUD** | Edit cards (EditCardModal), Add cards (AddCardButton), Delete with confirmation |
 | **Kanban-OST Sync** | Opportunities sync between Kanban board and OST Tree (same statuses) |
 | **Shared Interview Links** | `/join/[shareToken]` - One link spawns multiple interviews |
-| **Avatar Interview** | Anam photoreal avatar speaks the interviewer's replies (`/src/components/avatar/`, `/api/anam-session-token`) |
-| **OST Themes** | Themer agent auto-clusters opportunities into an evidence-grounded theme layer (`/api/themes`) |
-| **Recommendations Tab** | `/projects/[id]/recommendations` - 4-tier solution ideas per theme (`/api/recommendations`) |
-| **Transcript Import** | `/api/interviews/import` - add an existing transcript without a live interview |
-| **Project Sharing** | Owner invites members as editor/viewer (`/api/projects/members`, `project_members` table) |
-| **CI** | `.github/workflows/ci.yml` - model-ID check, typecheck, lint, build on every PR |
 
 ### Pending ⏳
 
 | Task | Priority | Description |
 |------|----------|-------------|
-| **End-to-End Test** | HIGH | Test full flow: create project → interview → snapshot → OST |
-| **Automated tests** | HIGH | No unit/e2e tests in the repo yet; CI only covers typecheck, lint, build |
+| **Apply migration 010** | HIGH | `010_close_public_interview_access.sql` — apply after this version is deployed, then flip the `it.fails` RLS test in `tests/smoke/rls-isolation.test.ts` to `it` |
+| **Tests in CI** | MEDIUM | CI runs model check, typecheck, lint, build. Smoke + e2e need Supabase/OpenRouter secrets and run locally for now |
 
 ---
 
@@ -85,18 +79,12 @@ npm run dev
 - `/src/app/api/synthesis/route.ts` - Snapshot generation
 - `/src/app/api/opportunities/route.ts` - OST CRUD
 
-### Mastra Agents (7 total)
+### Mastra Agents (5 total)
 - `/src/mastra/agents/projectGenerator.ts` - Creates structured projects from simple descriptions
 - `/src/mastra/agents/planner.ts` - Generates story-based rubrics
 - `/src/mastra/agents/interviewer.ts` - Conducts interviews (Teresa Torres method)
 - `/src/mastra/agents/synthesizer.ts` - Creates Interview Snapshots
 - `/src/mastra/agents/mapper.ts` - Suggests OST placements
-- `/src/mastra/agents/themer.ts` - Clusters opportunities into Themes
-- `/src/mastra/agents/recommender.ts` - 4-tier solution recommendations per theme
-
-Model IDs for all agents live in `/src/lib/openrouter.ts`. Mastra is used only for
-`Agent.generate()` / `.stream()` — no Mastra storage, memory, workflows or tools.
-Conversation state lives in the Supabase `messages` table. `DATABASE_URL` is not needed.
 
 ### Pages
 - `/src/app/dashboard/page.tsx` - Projects list
@@ -222,9 +210,6 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 # OpenRouter
 OPENROUTER_API_KEY=sk-or-v1-...
 
-# Anam (avatar interview, server-only)
-ANAM_API_KEY=...
-
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
@@ -245,6 +230,12 @@ npm run lint
 
 # Verify the configured model IDs still exist on OpenRouter
 npm run check:models
+
+# Smoke tests (RLS + API isolation; needs the dev server and .env.local)
+SMOKE_BASE_URL=http://localhost:3000 npm run test:smoke
+
+# End-to-end tests (Playwright; core-flow makes real agent calls, ~90s)
+npm run test:e2e
 
 # Build
 npm run build
@@ -365,6 +356,25 @@ Core flow is correct. Main gaps are experimentation layer and cross-interview in
 
 ---
 
+## How the AI layer works
+
+- **Mastra 1.x**, used only for `Agent.generate()` / `.stream()`. No Mastra storage,
+  memory, workflows or tools: conversation state lives in the Supabase `messages`
+  table and is passed in as prompt context each turn. `DATABASE_URL` is not needed.
+- **Models** are set in `/src/lib/openrouter.ts` and resolved by Mastra's model
+  router (`openrouter/<id>`, reads `OPENROUTER_API_KEY`).
+- **Structured output**: planner, synthesizer, mapper and project generator return
+  objects validated against the Zod schemas in `/src/mastra/schemas.ts`.
+- **Interview chat** (`/api/chat`) streams the interviewer's reply. Prompt text is in
+  `/src/lib/interviewerPrompts.ts`; `/src/lib/interviewStream.ts` strips internal
+  annotations and the `[INTERVIEW_COMPLETE]` marker from the stream.
+- **Participant page** (`/i/[token]`) never queries Supabase from the browser. It uses
+  `/api/interviews/session` and `/api/chat`, which validate the access token server-side.
+- The pre-revert hackathon build (avatar, Base44 theme, themes, recommendations) is
+  preserved at git tag `hackathon-2026-06`.
+
+---
+
 ## Next Steps
 
 - [x] Run database migration
@@ -376,4 +386,4 @@ Core flow is correct. Main gaps are experimentation layer and cross-interview in
 - [x] Security audit & fixes (input validation, AlertDialog)
 - [x] Implement shared interview links (`/join/[shareToken]`)
 - [ ] Test complete flow end-to-end
-- [ ] Add automated tests (unit + e2e)
+- [ ] Get Supabase database password for Mastra storage
