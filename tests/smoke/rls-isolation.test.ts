@@ -70,15 +70,11 @@ describe("RLS multi-tenant isolation", () => {
     expect(data).toEqual([]);
   });
 
-  // KNOWN VULNERABILITY: migrations/001:239-240 has a `Public interview access by token`
-  // policy that grants SELECT on every interview where status IN ('pending','active') —
-  // with NO access_token check. Any authenticated user (or anonymous visitor) can list
-  // every active/pending interview in the system. Audit miss; smoke test caught it.
-  // This test will RED until the policy is replaced with an access_token-scoped check
-  // OR the policy is dropped entirely (and /i/[token] page is moved behind a /api/public/...
-  // endpoint that uses the service-role client).
-  it.fails(
-    "User B cannot SELECT User A's PENDING interview (CRITICAL: public-read RLS leak)",
+  // Regression guard: the old `Public interview access by token` policy let anyone
+  // list every pending/active interview. Dropped in migration 010; the participant
+  // page now goes through /api/interviews/session with the service-role client.
+  it(
+    "User B cannot SELECT User A's PENDING interview (public-read RLS leak closed)",
     async () => {
       const { data, error } = await userB.client
         .from("interviews")

@@ -38,7 +38,6 @@ AI-powered interview platform using Teresa Torres' Continuous Discovery methodol
 
 | Task | Priority | Description |
 |------|----------|-------------|
-| **Apply migration 010** | HIGH | `010_close_public_interview_access.sql` — apply after this version is deployed, then flip the `it.fails` RLS test in `tests/smoke/rls-isolation.test.ts` to `it` |
 | **Tests in CI** | MEDIUM | CI runs model check, typecheck, lint, build. Smoke + e2e need Supabase/OpenRouter secrets and run locally for now |
 
 ---
