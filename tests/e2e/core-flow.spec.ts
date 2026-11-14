@@ -131,13 +131,25 @@ test.describe("Core flow", () => {
       "assistant",
     ]);
 
-    // --- Researcher marks it complete; synthesizer builds the snapshot
+    // --- Researcher marks it complete; the snapshot is built in the background
     await json(
       await page.request.patch("/api/interviews", { data: { interviewId: interview.id, status: "completed" } })
     );
-    const { snapshot } = await json(
-      await page.request.post("/api/synthesis", { data: { interviewId: interview.id } })
-    );
+    let snapshot: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    await expect
+      .poll(
+        async () => {
+          const res = await page.request.get(`/api/synthesis?interviewId=${interview.id}`);
+          if (res.ok()) snapshot = await res.json();
+          return res.status();
+        },
+        { timeout: 120_000, intervals: [3000] }
+      )
+      .toBe(200);
+    expect(snapshot.status).toBe("pending");
+    // A manual request now loses to the automatic one instead of duplicating it.
+    const duplicate = await page.request.post("/api/synthesis", { data: { interviewId: interview.id } });
+    expect(duplicate.status()).toBe(409);
     expect(snapshot.experience_map.length).toBeGreaterThan(0);
     expect(snapshot.quote_reel.length).toBeGreaterThan(0);
 

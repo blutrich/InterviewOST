@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { mastra } from "@/mastra";
 import {
@@ -12,6 +13,7 @@ import {
   buildTurnPrompt,
 } from "@/lib/interviewerPrompts";
 import { createStreamCleaner, cleanForStorage } from "@/lib/interviewStream";
+import { autoGenerateSnapshot } from "@/lib/snapshots";
 
 export async function POST(req: Request) {
   try {
@@ -121,6 +123,17 @@ export async function POST(req: Request) {
     const cleaner = createStreamCleaner();
     const encoder = new TextEncoder();
 
+    // Resolves once the stream pump knows whether this turn ended the
+    // interview. When it did, the snapshot is built after the response has
+    // been sent, so the participant never waits on the synthesizer.
+    let settleCompleted: (completed: boolean) => void = () => {};
+    const completedThisTurn = new Promise<boolean>((resolve) => {
+      settleCompleted = resolve;
+    });
+    after(async () => {
+      if (await completedThisTurn) await autoGenerateSnapshot(supabase, interviewId);
+    });
+
     const responseStream = new ReadableStream<Uint8Array>({
       async start(controller) {
         const reader = textStream.getReader();
@@ -160,6 +173,8 @@ export async function POST(req: Request) {
                 .eq("id", interviewId);
               if (completeError) {
                 console.error("Failed to mark interview complete:", completeError);
+              } else {
+                settleCompleted(true);
               }
             }
           } else {
@@ -172,6 +187,9 @@ export async function POST(req: Request) {
         } catch (err) {
           console.error("Stream pump error:", err);
           controller.error(err);
+        } finally {
+          // No-op if already settled true above.
+          settleCompleted(false);
         }
       },
     });
