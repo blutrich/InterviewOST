@@ -1,6 +1,5 @@
 import { createClient, getAuthenticatedUser, verifyProjectOwnership } from "@/lib/supabase/server";
-import { mastra } from "@/mastra";
-import { interviewSnapshotSchema } from "@/mastra/schemas";
+import { generateSnapshot } from "@/lib/snapshots";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import {
@@ -47,10 +46,10 @@ export async function POST(req: Request) {
 
     const supabase = await createClient();
 
-    // Fetch the interview with messages and project_id for authorization
+    // Fetch the interview's project_id for authorization
     const { data: interview, error: interviewError } = await supabase
       .from("interviews")
-      .select("*, messages(*), project_id")
+      .select("project_id")
       .eq("id", interviewId)
       .single();
 
@@ -64,83 +63,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: ownershipError }, { status: 403 });
     }
 
-    if (interview.status !== "completed") {
-      return NextResponse.json({ error: "Interview must be completed before synthesis" }, { status: 400 });
-    }
-
-    // Check if snapshot already exists
-    const { data: existingSnapshot } = await supabase
-      .from("snapshots")
-      .select("id")
-      .eq("interview_id", interviewId)
-      .single();
-
-    if (existingSnapshot) {
-      return NextResponse.json({ error: "Snapshot already exists for this interview" }, { status: 409 });
-    }
-
-    // Build transcript from messages
-    const messages = interview.messages || [];
-    const transcript = messages
-      .sort(
-        (a: { created_at: string }, b: { created_at: string }) =>
-          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      )
-      .map(
-        (m: { role: string; content: string; created_at: string }) =>
-          `[${m.role === "user" ? "Participant" : "Interviewer"}] ${m.content}`
-      )
-      .join("\n\n");
-
-    if (messages.length < 4) {
-      return NextResponse.json({ error: "Interview transcript is too short for synthesis" }, { status: 400 });
-    }
-
-    // Get the synthesizer agent
-    const synthesizer = mastra.getAgent("synthesizerAgent");
-
-    // Generate the Interview Snapshot with structured output
-    const prompt = `Analyze this interview transcript and create an Interview Snapshot:
-
-## Interview Transcript
-
-${transcript}
-
-## Participant Name
-${interview.participant_name || "Anonymous"}
-
----
-
-Generate the Interview Snapshot JSON with experience_map, quote_reel, facts, and blind_spots.`;
-
-    const response = await synthesizer.generate(prompt, {
-      structuredOutput: { schema: interviewSnapshotSchema },
-    });
-
-    const snapshot = response.object;
-
-    // Save the snapshot to the database
-    const { data: savedSnapshot, error: saveError } = await supabase
-      .from("snapshots")
-      .insert({
-        interview_id: interviewId,
-        experience_map: snapshot.experience_map,
-        quote_reel: snapshot.quote_reel,
-        facts: snapshot.facts,
-        blind_spots: snapshot.blind_spots,
-        status: "pending", // Pending human validation
-      })
-      .select()
-      .single();
-
-    if (saveError) {
-      console.error("Failed to save snapshot:", saveError);
-      return NextResponse.json({ error: "Failed to save snapshot" }, { status: 500 });
+    const result = await generateSnapshot(supabase, interviewId);
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
     return NextResponse.json({
       success: true,
-      snapshot: savedSnapshot,
+      snapshot: result.snapshot,
     });
   } catch (error) {
     console.error("Synthesis API error:", error);

@@ -24,9 +24,15 @@ export function GenerateSnapshotButton({
         body: JSON.stringify({ interviewId }),
       });
 
+      // 409: the automatic run finished first — just show its snapshot.
+      if (response.status === 409) {
+        router.refresh();
+        return;
+      }
+
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(error || "Failed to generate snapshot");
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || "Failed to generate snapshot");
       }
 
       toast.success("Interview Snapshot generated successfully!");

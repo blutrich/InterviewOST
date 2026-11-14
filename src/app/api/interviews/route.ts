@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { createClient, getAuthenticatedUser, verifyProjectOwnership } from "@/lib/supabase/server";
 import { nanoid } from "nanoid";
+import { autoGenerateSnapshot } from "@/lib/snapshots";
 import { z } from "zod";
 
 // Validation schemas
@@ -206,6 +207,12 @@ export async function PATCH(req: Request) {
     if (error) {
       console.error("Database error:", error);
       return NextResponse.json({ error: "Failed to update interview" }, { status: 500 });
+    }
+
+    // Marked complete: build the snapshot in the background so it's waiting
+    // for the researcher instead of behind a button.
+    if (status === "completed") {
+      after(() => autoGenerateSnapshot(supabase, interviewId));
     }
 
     return NextResponse.json(interview);

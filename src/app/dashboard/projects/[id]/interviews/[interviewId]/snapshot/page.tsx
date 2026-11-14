@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 // Force dynamic rendering to ensure fresh data
 export const dynamic = "force-dynamic";
@@ -19,7 +19,8 @@ interface Props {
 
 export default async function InterviewSnapshotPage({ params }: Props) {
   const { id: projectId, interviewId } = await params;
-  const supabase = await createServiceClient();
+  // User-scoped client: RLS keeps this page to the project's own interviews.
+  const supabase = await createClient();
 
   // Fetch interview
   const { data: interview, error } = await supabase
@@ -37,7 +38,7 @@ export default async function InterviewSnapshotPage({ params }: Props) {
     .from("snapshots")
     .select("*")
     .eq("interview_id", interviewId)
-    .single();
+    .maybeSingle();
 
   const isCompleted = interview.status === "completed";
 
@@ -126,11 +127,12 @@ export default async function InterviewSnapshotPage({ params }: Props) {
                 </svg>
               </div>
               <h2 className="text-2xl font-light text-landing-charcoal mb-3">
-                Ready to Generate Snapshot
+                Snapshot Not Ready Yet
               </h2>
               <p className="text-landing-stone mb-8 max-w-md mx-auto">
-                This interview is complete. Generate an AI-powered Interview
-                Snapshot following Teresa Torres&apos; methodology.
+                Snapshots are built automatically when an interview ends, which
+                takes about a minute. If this one hasn&apos;t appeared, generate
+                it here.
               </p>
               <GenerateSnapshotButton interviewId={interviewId} />
             </>
